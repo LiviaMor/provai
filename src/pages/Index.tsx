@@ -129,6 +129,14 @@ const brandSizes = {
   Sutiã: "Ex.: 40B quando aplicável",
 };
 
+const brandSizeGuide = [
+  { brand: "Renner", top: "P 88-92 | M 94-98 | G 100-106", bottom: "38 72-76/96-100 | 40 78-82/102-106", note: "Modelagem brasileira regular; confira elasticidade." },
+  { brand: "C&A", top: "P 86-92 | M 94-100 | G 102-108", bottom: "38 70-76/94-100 | 40 78-84/102-108", note: "Boa base para peças casuais e jeans." },
+  { brand: "Shein", top: "S 86-90 | M 90-96 | L 96-102", bottom: "M 70-76/96-102 | L 76-82/102-108", note: "Costuma variar por vendedor; priorize tabela do produto." },
+  { brand: "Zara", top: "S 84-90 | M 90-96 | L 96-102", bottom: "38 70-74/96-100 | 40 74-78/100-104", note: "Tende a ter caimento mais ajustado." },
+  { brand: "Farm", top: "P 86-92 | M 92-98 | G 98-106", bottom: "P 68-74/94-100 | M 74-82/100-108", note: "Peças fluidas toleram mais variação no quadril." },
+];
+
 const historySeed: HistoryItem[] = [
   { id: "1", date: "Jan", waist: 78, hip: 101, weight: 70 },
   { id: "2", date: "Fev", waist: 76, hip: 100, weight: 69 },
@@ -306,17 +314,37 @@ const Index = () => {
   const exportPdf = () => {
     if (!analysis) return toast.error("Faça uma análise antes de exportar.");
     const pdf = new jsPDF();
-    pdf.setFontSize(20);
-    pdf.text("Relatório Encaixe", 16, 20);
+    pdf.setFillColor(20, 31, 61);
+    pdf.roundedRect(14, 12, 182, 22, 4, 4, "F");
+    pdf.setTextColor(250, 248, 245);
+    pdf.setFontSize(18);
+    pdf.text("Encaixe", 20, 26);
+    pdf.setFontSize(10);
+    pdf.text("Laudo de medidas e recomendação de compra", 52, 26);
+    pdf.setTextColor(20, 31, 61);
     pdf.setFontSize(11);
-    pdf.text(`Confiança: ${confidenceLabel(analysis.confidence)} (${Math.round(analysis.confidence)}%)`, 16, 32);
-    pdf.text(`Tipo corporal: ${analysis.bodyType ?? "Em avaliação"}`, 16, 40);
-    let y = 54;
+    pdf.text(`Confiança: ${confidenceLabel(analysis.confidence)} (${Math.round(analysis.confidence)}%)`, 16, 46);
+    pdf.text(`Tipo corporal: ${analysis.bodyType ?? "Em avaliação"}`, 16, 54);
+    let y = 68;
+    pdf.setFontSize(13);
+    pdf.text("Medidas", 16, y);
+    y += 8;
+    pdf.setFontSize(10);
     Object.entries(analysis.measurements).forEach(([key, value]) => {
       pdf.text(`${measureLabels[key] ?? key}: ${formatMeasure(key, Number(value))}`, 16, y);
-      y += 8;
+      y += 7;
     });
-    pdf.text("Observação: esta é uma estimativa. Consulte um profissional de saúde.", 16, y + 8);
+    y += 4;
+    pdf.setFontSize(13);
+    pdf.text("Recomendações", 16, y);
+    y += 8;
+    pdf.setFontSize(10);
+    [...analysis.clothing.map((item) => `${item.category}: ${item.size} — ${item.fitTip}`), ...analysis.adjustments].slice(0, 8).forEach((item) => {
+      const lines = pdf.splitTextToSize(`• ${textOf(item)}`, 176);
+      pdf.text(lines, 16, y);
+      y += lines.length * 6;
+    });
+    pdf.text("Observação: esta é uma estimativa. Consulte um profissional de saúde.", 16, Math.min(y + 8, 282));
     pdf.save("relatorio-encaixe.pdf");
   };
 
@@ -378,17 +406,17 @@ const Index = () => {
                   </div>
                 ))}
               </div>
-              {isAnalyzing && <div className="relative overflow-hidden rounded-2xl border bg-secondary p-6 text-center font-bold"><span className="absolute inset-x-0 top-0 h-20 animate-scan bg-scanner-line" />IA analisando seu encaixe...</div>}
+              {isAnalyzing && <div className="body-scan-loader scan-grid relative min-h-56 overflow-hidden rounded-2xl border bg-secondary p-6 text-center font-bold shadow-inner"><div className="relative z-10 mt-36 rounded-2xl bg-card/90 p-3">IA escaneando medidas, caimento e tabela da loja...</div></div>}
             </div>
 
             <div className="space-y-4 rounded-2xl border bg-panel-glow p-4 shadow-panel backdrop-blur sm:p-5">
               {mode === "photo" && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Label htmlFor="front" className="relative flex aspect-[3/4] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
-                    {frontPreview ? <img src={frontPreview} alt="Foto frontal para análise de medidas" className="h-full w-full object-cover" /> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto de frente</span>}
+                    {frontPreview ? <><img src={frontPreview} alt="Preview da foto frontal para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview frente · tocar para trocar</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto de frente</span>}
                   </Label>
                   <Label htmlFor="side" className="relative flex aspect-[3/4] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
-                    {sidePreview ? <img src={sidePreview} alt="Foto lateral para análise de medidas" className="h-full w-full object-cover" /> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto lateral</span>}
+                    {sidePreview ? <><img src={sidePreview} alt="Preview da foto lateral para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview lateral · tocar para trocar</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto lateral</span>}
                   </Label>
                   <Input id="front" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="side" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
@@ -439,7 +467,7 @@ const Index = () => {
                 <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">IMC</p><p className="font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">Tipo corporal</p><p className="font-display text-2xl font-semibold">{analysis.bodyType ?? "Triângulo"}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">% gordura</p><p className="font-display text-xl font-semibold">{fitness.bodyFatEstimate}</p></div></div><div className="overflow-hidden rounded-2xl border"><table className="w-full text-sm"><tbody>{measurementRows.map((row) => <tr key={row.key} className="border-b last:border-0"><td className="p-3 font-bold">{row.label}</td><td className="p-3">{row.value}</td><td className="p-3 text-muted-foreground">{row.status}</td></tr>)}</tbody></table></div></div>
               </TabsContent>
 
-              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
+              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Tabela por marca</h3><div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[680px] text-sm"><thead className="bg-muted text-left"><tr><th className="p-3">Marca</th><th className="p-3">Blusas/Camisas</th><th className="p-3">Calças/Saias</th><th className="p-3">Observação</th></tr></thead><tbody>{brandSizeGuide.map((row) => <tr key={row.brand} className="border-t"><td className="p-3 font-bold">{row.brand}</td><td className="p-3">{row.top}</td><td className="p-3">{row.bottom}</td><td className="p-3 text-muted-foreground">{row.note}</td></tr>)}</tbody></table></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
