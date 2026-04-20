@@ -142,7 +142,7 @@ const Index = () => {
               Avaliação física virtual para comprar roupa com mais precisão.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
-              Envie uma foto de corpo inteiro e adicione altura/peso quando tiver. A IA estima busto, cintura, quadril, pernas, braços, peso e transforma isso em recomendações de tamanho, barra e punho.
+              Envie uma foto de corpo inteiro, dados de escala e o link da roupa. A IA estima medidas e cruza com a página da loja para recomendar tamanho, barra, punho e risco de troca.
             </p>
           </div>
 
@@ -199,6 +199,11 @@ const Index = () => {
                 <Label htmlFor="gender">Modelagem</Label>
                 <Input id="gender" value={gender} onChange={(event) => setGender(event.target.value)} placeholder="fem., masc..." maxLength={40} />
               </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label>
+              <Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} />
             </div>
 
             <div className="mt-3 space-y-2">
