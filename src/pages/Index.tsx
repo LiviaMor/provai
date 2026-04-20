@@ -353,13 +353,6 @@ const Index = () => {
   const [history, setHistory] = useState(historySeed);
 
   const currentMeasurements = analysis?.measurements ?? {};
-  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements), bioimpedanceData);
-  const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
-  const sizes = analysis?.sizeRecommendations ?? brandSizes;
-  const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
-  const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
-  const accountType = profile?.account_type ?? "b2c";
-
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
     bodyFatPct: parseNumber(bioimpedance.bodyFatPct ?? ""),
     muscleMassKg: parseNumber(bioimpedance.muscleMassKg ?? ""),
@@ -368,6 +361,12 @@ const Index = () => {
     bmr: parseNumber(bioimpedance.bmr ?? ""),
     source: bioFileName ? `Arquivo temporário: ${bioFileName}` : undefined,
   }), [bioFileName, bioimpedance]);
+  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements), bioimpedanceData);
+  const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
+  const sizes = analysis?.sizeRecommendations ?? brandSizes;
+  const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
+  const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
+  const accountType = profile?.account_type ?? "b2c";
 
   const measurementRows = useMemo(() => {
     const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
