@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
-import { Activity, ArrowRight, Camera, CheckCircle2, Ruler, ScanLine, Shirt, Sparkles, Upload, Wand2 } from "lucide-react";
+import { Activity, ArrowRight, Camera, CheckCircle2, Link2, Ruler, ScanLine, Shirt, Sparkles, Upload, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ const Index = () => {
   const [weightKg, setWeightKg] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
+  const [productUrl, setProductUrl] = useState("");
   const [shoppingGoal, setShoppingGoal] = useState("Comprar roupas online com menos troca");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -101,6 +102,7 @@ const Index = () => {
         weightKg: numberOrUndefined(weightKg),
         age: numberOrUndefined(age),
         gender: gender.trim() || undefined,
+        productUrl: productUrl.trim() || undefined,
         shoppingGoal: shoppingGoal.trim() || undefined,
       },
     });
@@ -140,7 +142,7 @@ const Index = () => {
               Avaliação física virtual para comprar roupa com mais precisão.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
-              Envie uma foto de corpo inteiro e adicione altura/peso quando tiver. A IA estima busto, cintura, quadril, pernas, braços, peso e transforma isso em recomendações de tamanho, barra e punho.
+              Envie uma foto de corpo inteiro, dados de escala e o link da roupa. A IA estima medidas e cruza com a página da loja para recomendar tamanho, barra, punho e risco de troca.
             </p>
           </div>
 
@@ -197,6 +199,11 @@ const Index = () => {
                 <Label htmlFor="gender">Modelagem</Label>
                 <Input id="gender" value={gender} onChange={(event) => setGender(event.target.value)} placeholder="fem., masc..." maxLength={40} />
               </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label>
+              <Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} />
             </div>
 
             <div className="mt-3 space-y-2">

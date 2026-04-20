@@ -12,10 +12,45 @@ type BodyPayload = {
   age?: number;
   gender?: string;
   shoppingGoal?: string;
+  productUrl?: string;
 };
 
 const isFiniteNumber = (value: unknown, min: number, max: number) =>
   typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
+
+const safeProductUrl = (raw?: string) => {
+  if (!raw || raw.length > 500) return undefined;
+  try {
+    const url = new URL(raw);
+    if (!["https:", "http:"].includes(url.protocol)) return undefined;
+    const host = url.hostname.toLowerCase();
+    if (host === "localhost" || host.endsWith(".local") || host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+};
+
+const fetchProductContext = async (raw?: string) => {
+  const url = safeProductUrl(raw);
+  if (!url) return "Link de produto não informado ou inválido.";
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6500);
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 MedidaCertaAI/1.0" },
+    });
+    clearTimeout(timeout);
+    const html = (await response.text()).slice(0, 120000);
+    const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "";
+    const meta = [...html.matchAll(/<meta[^>]+(?:name|property)=["'](?:description|og:description|product:price:amount|og:title)["'][^>]+content=["']([^"']+)["'][^>]*>/gi)].map((m) => m[1]).join(" | ");
+    const text = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return `URL: ${url}\nTítulo/metadados: ${title} ${meta}\nConteúdo visível: ${text.slice(0, 9000)}`;
+  } catch {
+    return `URL: ${url}\nNão foi possível extrair a página automaticamente. Use apenas o domínio/link como contexto e peça conferência manual da tabela de medidas.`;
+  }
+};
 
 const fallbackAnalysis = (payload: BodyPayload) => {
   const height = payload.heightCm ?? 170;
@@ -83,12 +118,14 @@ serve(async (req) => {
       });
     }
 
+    const productContext = await fetchProductContext(payload.productUrl);
+
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) return new Response(JSON.stringify(fallbackAnalysis(payload)), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const system = `Você é um assistente de análise antropométrica virtual para e-commerce de roupas e acompanhamento físico. Responda somente JSON válido. Use a foto e os dados informados para estimar medidas corporais em centímetros, indicar confiança, recomendações de tamanho e ajustes de barra/punho. Seja conservador, explique que é estimativa visual, não diagnóstico médico, e recomende confirmação com fita métrica. Não identifique pessoa, idade real ou atributos sensíveis pela imagem.`;
+    const system = `Você é um assistente de análise antropométrica virtual para e-commerce de roupas e acompanhamento físico. Responda somente JSON válido. Use a foto, dados informados e contexto da página do produto para estimar medidas corporais em centímetros, comparar com tabela/modelagem disponível, indicar melhor tamanho, risco de troca e ajustes de barra/punho. Seja conservador, explique que é estimativa visual, não diagnóstico médico, e recomende confirmação com fita métrica. Não identifique pessoa, idade real ou atributos sensíveis pela imagem.`;
 
-    const userText = `Dados opcionais: altura=${payload.heightCm ?? "não informado"}cm, peso=${payload.weightKg ?? "não informado"}kg, idade=${payload.age ?? "não informado"}, gênero/modelagem=${payload.gender ?? "não informado"}, objetivo=${payload.shoppingGoal ?? "compra online e avaliação física"}. Retorne JSON com: confidence number 0-100, disclaimer string, measurements {height_cm, estimated_weight_kg, bust_cm, waist_cm, hip_cm, inseam_cm, outseam_cm, arm_length_cm, shoulder_width_cm, thigh_cm}, fitProfile string, clothing array de {category,size,fitTip}, adjustments array, nutritionNotes array.`;
+    const userText = `Dados opcionais: altura=${payload.heightCm ?? "não informado"}cm, peso=${payload.weightKg ?? "não informado"}kg, idade=${payload.age ?? "não informado"}, gênero/modelagem=${payload.gender ?? "não informado"}, objetivo=${payload.shoppingGoal ?? "compra online e avaliação física"}. Contexto da loja/produto extraído do link: ${productContext}. Retorne JSON com: confidence number 0-100, disclaimer string, measurements {height_cm, estimated_weight_kg, bust_cm, waist_cm, hip_cm, inseam_cm, outseam_cm, arm_length_cm, shoulder_width_cm, thigh_cm}, fitProfile string, clothing array de {category,size,fitTip} incluindo recomendação específica do produto quando houver tabela, adjustments array incluindo barra/punho quando aplicável, nutritionNotes array.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
