@@ -285,7 +285,7 @@ const Index = () => {
   const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
 
   const measurementRows = useMemo(() => {
-    const keys: MeasurementKey[] = ["bust_cm", "waist_cm", "hip_cm", "inseam_cm", "arm_length_cm", "shoulder_width_cm", "neck_cm"];
+    const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
     return keys.map((key) => ({
       key,
       label: measureLabels[key],
@@ -370,7 +370,7 @@ const Index = () => {
 
     if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
 
-    const result = data as Analysis;
+    const result = normalizeAnalysis(data);
     setAnalysis(result);
     setMode("results");
     await saveHistory(result);
