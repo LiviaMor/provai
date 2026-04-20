@@ -686,6 +686,14 @@ const Index = () => {
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
+              <div className="space-y-3 rounded-2xl border bg-card/70 p-4">
+                <div><h3 className="font-display text-xl font-semibold">Bioimpedância opcional</h3><p className="text-sm leading-6 text-muted-foreground">Digite dados do exame ou anexe temporariamente para acompanhamento com médico/nutricionista.</p></div>
+                <div className="grid grid-cols-2 gap-3">
+                  {bioimpedanceFields.map((field) => <div key={field.key} className="space-y-2"><Label htmlFor={`bio-${field.key}`}>{field.label}</Label><Input id={`bio-${field.key}`} inputMode="decimal" value={bioimpedance[field.key] ?? ""} onChange={(event) => setBioimpedance((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} /></div>)}
+                </div>
+                <Label htmlFor="bio-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> {bioFileName || "Upload do exame"}</Label>
+                <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
+              </div>
               {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
               <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
             </div>
