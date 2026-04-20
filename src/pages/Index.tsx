@@ -125,7 +125,7 @@ const Index = () => {
               <span className="grid size-9 place-items-center rounded-md bg-primary text-primary-foreground shadow-glow">
                 <ScanLine className="size-5" />
               </span>
-              MedidaFit AI
+              MedidaCerta AI
             </div>
             <span className="hidden items-center gap-2 rounded-md bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground sm:flex">
               <Sparkles className="size-3.5" /> análise virtual
