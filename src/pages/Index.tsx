@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
-import { Activity, ArrowRight, Camera, CheckCircle2, Ruler, ScanLine, Shirt, Sparkles, Upload, Wand2 } from "lucide-react";
+import { Activity, ArrowRight, Camera, CheckCircle2, Link2, Ruler, ScanLine, Shirt, Sparkles, Upload, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ const Index = () => {
   const [weightKg, setWeightKg] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
+  const [productUrl, setProductUrl] = useState("");
   const [shoppingGoal, setShoppingGoal] = useState("Comprar roupas online com menos troca");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -101,6 +102,7 @@ const Index = () => {
         weightKg: numberOrUndefined(weightKg),
         age: numberOrUndefined(age),
         gender: gender.trim() || undefined,
+        productUrl: productUrl.trim() || undefined,
         shoppingGoal: shoppingGoal.trim() || undefined,
       },
     });
