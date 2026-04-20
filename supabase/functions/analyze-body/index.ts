@@ -33,9 +33,53 @@ const safeProductUrl = (raw?: string) => {
   }
 };
 
+const fetchWithFirecrawl = async (url: string) => {
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) return undefined;
+
+  const response = await fetch("https://api.firecrawl.dev/v2/scrape", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      url,
+      formats: [
+        "markdown",
+        "summary",
+        {
+          type: "json",
+          prompt: "Extraia dados de produto de moda: nome, marca, preço, descrição, composição, medidas/tabela de tamanhos, variações, tamanhos disponíveis e qualquer orientação de caimento ou ajuste. Responda em português brasileiro.",
+        },
+      ],
+      onlyMainContent: true,
+      waitFor: 2500,
+      location: { country: "BR", languages: ["pt-BR", "pt"] },
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Firecrawl ${response.status}: ${await response.text()}`);
+  const data = await response.json();
+  const document = data.data ?? data;
+  const metadata = document.metadata ?? {};
+  const structured = document.json ? JSON.stringify(document.json).slice(0, 6000) : "";
+  const summary = document.summary ?? "";
+  const markdown = document.markdown ?? "";
+
+  return `URL: ${url}\nFonte: Firecrawl\nTítulo: ${metadata.title ?? ""}\nDescrição: ${metadata.description ?? ""}\nResumo: ${summary}\nDados estruturados: ${structured}\nConteúdo: ${markdown.slice(0, 12000)}`;
+};
+
 const fetchProductContext = async (raw?: string) => {
   const url = safeProductUrl(raw);
   if (!url) return "Link de produto não informado ou inválido.";
+  try {
+    const firecrawlContext = await fetchWithFirecrawl(url);
+    if (firecrawlContext) return firecrawlContext;
+  } catch (error) {
+    console.error("Firecrawl extraction failed", error);
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6500);
