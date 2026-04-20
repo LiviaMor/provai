@@ -137,10 +137,19 @@ const confidenceLabel = (confidence: number) => {
   return "Informe manualmente para maior precisão";
 };
 
-const formatMeasure = (key: string, value?: number) => {
+const formatMeasure = (key: string, value?: number | null) => {
   if (!value) return "—";
   if (key.includes("kg")) return `${Math.round(value)}kg`;
   return `${Math.round(value)}cm`;
+};
+
+const textOf = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const item = value as Record<string, unknown>;
+    return String(item.recommendation ?? item.tip ?? item.summary ?? JSON.stringify(item));
+  }
+  return String(value ?? "");
 };
 
 const calculateFallbackFitness = (measurements: Measurements): FitnessAssessment => {
@@ -401,7 +410,7 @@ const Index = () => {
                 <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">IMC</p><p className="font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">Tipo corporal</p><p className="font-display text-2xl font-semibold">{analysis.bodyType ?? "Triângulo"}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">% gordura</p><p className="font-display text-xl font-semibold">{fitness.bodyFatEstimate}</p></div></div><div className="overflow-hidden rounded-2xl border"><table className="w-full text-sm"><tbody>{measurementRows.map((row) => <tr key={row.key} className="border-b last:border-0"><td className="p-3 font-bold">{row.label}</td><td className="p-3">{row.value}</td><td className="p-3 text-muted-foreground">{row.status}</td></tr>)}</tbody></table></div></div>
               </TabsContent>
 
-              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{value}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item) => <p key={item} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{item}</p>)}</div></div></TabsContent>
+              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div></TabsContent>
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
