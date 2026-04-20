@@ -266,6 +266,10 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
         bmiClass: data.body_analysis?.bmi_category,
         waistRisk: `Risco abdominal: ${data.body_analysis?.abdominal_risk ?? "em avaliação"}. Relação cintura/quadril: ${data.body_analysis?.waist_to_hip_ratio ?? "—"}`,
         bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct ? `${data.body_analysis.body_fat_estimate_pct}%` : "Estimativa visual conservadora",
+        muscleMassEstimate: data.body_analysis?.muscle_mass_kg ? `${data.body_analysis.muscle_mass_kg}kg` : undefined,
+        abdominalFatEstimate: data.body_analysis?.visceral_fat ? `Gordura visceral ${data.body_analysis.visceral_fat}` : undefined,
+        tissueDistribution: data.body_analysis?.tissue_distribution,
+        bmr: data.body_analysis?.basal_metabolic_rate_kcal,
         summary: data.body_analysis?.body_fat_disclaimer,
       },
       clothing: [
@@ -504,6 +508,7 @@ const Index = () => {
         shoppingGoal: objective,
         productUrl: productUrl.trim() || undefined,
         manualMeasurements: measurements,
+        bioimpedance: bioimpedanceData,
       },
     });
 
