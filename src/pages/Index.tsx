@@ -544,7 +544,7 @@ const Index = () => {
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
-              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. As fotos não são armazenadas após o processamento.</label>}
+              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. As fotos ficam salvas temporariamente neste dispositivo e expiram automaticamente.</label>}
               <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
             </div>
           </form>
