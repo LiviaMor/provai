@@ -326,6 +326,34 @@ const Index = () => {
   }, [currentMeasurements]);
 
   useEffect(() => {
+    const ensureProfile = async (id: string, metadata?: Record<string, unknown>) => {
+      const { data } = await (supabase as any).from("profiles").select("user_id, display_name, account_type, company_name").eq("user_id", id).maybeSingle();
+      if (data) return setProfile(data);
+      const fallbackProfile = {
+        user_id: id,
+        display_name: String(metadata?.full_name ?? metadata?.name ?? ""),
+        avatar_url: String(metadata?.avatar_url ?? ""),
+        account_type: "b2c",
+      };
+      const { data: created } = await (supabase as any).from("profiles").insert(fallbackProfile).select("user_id, display_name, account_type, company_name").single();
+      setProfile(created ?? fallbackProfile);
+    };
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const id = session?.user.id ?? "";
+      setUserId(id);
+      if (!id) return setProfile(null);
+      setTimeout(() => ensureProfile(id, session?.user.user_metadata), 0);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      const id = data.session?.user.id ?? "";
+      setUserId(id);
+      if (id) ensureProfile(id, data.session?.user.user_metadata);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (!frontPreview && !sidePreview) {
       sessionStorage.removeItem(TEMP_PHOTOS_KEY);
       return;
