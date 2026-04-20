@@ -92,6 +92,13 @@ type PurchaseRisk = {
   detail: string;
 };
 
+type UserProfile = {
+  user_id: string;
+  display_name?: string | null;
+  account_type: "b2c" | "b2b";
+  company_name?: string | null;
+};
+
 const measureLabels: Record<string, string> = {
   height_cm: "Altura",
   estimated_weight_kg: "Peso",
@@ -288,6 +295,8 @@ const Index = () => {
   const temporaryPhotos = useMemo(readTemporaryPhotos, []);
   const [frontPreview, setFrontPreview] = useState(temporaryPhotos.frontPreview);
   const [sidePreview, setSidePreview] = useState(temporaryPhotos.sidePreview);
+  const [userId, setUserId] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [gender, setGender] = useState("Feminino");
   const [objective, setObjective] = useState("Ambos");
@@ -304,6 +313,7 @@ const Index = () => {
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
   const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
+  const accountType = profile?.account_type ?? "b2c";
 
   const measurementRows = useMemo(() => {
     const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
