@@ -285,8 +285,9 @@ const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
 
 const Index = () => {
   const [mode, setMode] = useState<FlowMode>("home");
-  const [frontPreview, setFrontPreview] = useState("");
-  const [sidePreview, setSidePreview] = useState("");
+  const temporaryPhotos = useMemo(readTemporaryPhotos, []);
+  const [frontPreview, setFrontPreview] = useState(temporaryPhotos.frontPreview);
+  const [sidePreview, setSidePreview] = useState(temporaryPhotos.sidePreview);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [gender, setGender] = useState("Feminino");
   const [objective, setObjective] = useState("Ambos");
@@ -314,13 +315,24 @@ const Index = () => {
     }));
   }, [currentMeasurements]);
 
+  useEffect(() => {
+    if (!frontPreview && !sidePreview) {
+      sessionStorage.removeItem(TEMP_PHOTOS_KEY);
+      return;
+    }
+    sessionStorage.setItem(TEMP_PHOTOS_KEY, JSON.stringify({ frontPreview, sidePreview, savedAt: Date.now() }));
+  }, [frontPreview, sidePreview]);
+
   const onImageChange = (event: ChangeEvent<HTMLInputElement>, kind: "front" | "side") => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("Envie uma imagem válida.");
     if (file.size > 7 * 1024 * 1024) return toast.error("Use uma foto de até 7MB para análise mais rápida.");
     const reader = new FileReader();
-    reader.onload = () => (kind === "front" ? setFrontPreview(String(reader.result)) : setSidePreview(String(reader.result)));
+    reader.onload = () => {
+      kind === "front" ? setFrontPreview(String(reader.result)) : setSidePreview(String(reader.result));
+      toast.success("Foto salva temporariamente neste dispositivo.");
+    };
     reader.readAsDataURL(file);
   };
 
