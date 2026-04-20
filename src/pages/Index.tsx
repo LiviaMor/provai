@@ -435,6 +435,23 @@ const Index = () => {
       return acc;
     }, {});
 
+  const updateAnalysisMeasurement = (key: MeasurementKey, value: string) => {
+    setManual((prev) => ({ ...prev, [key]: value }));
+    const numeric = parseNumber(value);
+    if (!analysis || !numeric) return;
+    const measurements = { ...analysis.measurements, [key]: numeric };
+    const recalculatedFitness = mergeBioimpedanceFitness(calculateFallbackFitness(measurements), bioimpedanceData);
+    setAnalysis({ ...analysis, measurements, fitnessAssessment: recalculatedFitness });
+  };
+
+  const onBioFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Envie um exame de até 5MB.");
+    setBioFileName(file.name);
+    toast.success("Exame anexado temporariamente; digite os valores principais para refinar a análise.");
+  };
+
   const saveHistory = async (result: Analysis) => {
     const item = {
       id: String(Date.now()),
