@@ -107,57 +107,17 @@ const fallbackAnalysis = (payload: BodyPayload) => {
   const bust = manual.bust_cm ?? Math.round(waist * 1.1);
   const bmi = Math.round((weight / Math.pow(height / 100, 2)) * 10) / 10;
   const bmiClass = bmi < 18.5 ? "Abaixo do peso" : bmi < 25 ? "Normal" : bmi < 30 ? "Sobrepeso" : "Obeso";
+  const bodyType = hip > bust + 7 ? "Triângulo" : bust > hip + 7 ? "Triângulo invertido" : Math.abs(bust - hip) <= 6 && waist < bust - 18 ? "Ampulheta" : waist > hip * 0.86 ? "Oval" : "Retangular";
   return {
-    confidence: 42,
-    disclaimer: "Estimativa demonstrativa: envie foto frontal de corpo inteiro e informe altura/peso para melhorar a precisão. Não substitui avaliação clínica.",
-    measurements: {
-      height_cm: height,
-      estimated_weight_kg: weight,
-      bust_cm: bust,
-      waist_cm: waist,
-      hip_cm: hip,
-      inseam_cm: manual.inseam_cm ?? Math.round(height * 0.455),
-      outseam_cm: Math.round(height * 0.59),
-      arm_length_cm: manual.arm_length_cm ?? Math.round(height * 0.33),
-      shoulder_width_cm: manual.shoulder_width_cm ?? Math.round(height * 0.255),
-      neck_cm: Math.round(height * 0.21),
-      thigh_cm: Math.round(hip * 0.56),
-    },
-    fitProfile: "Regular com atenção ao caimento na cintura e comprimento.",
-    bodyType: hip > bust + 7 ? "Triângulo" : bust > hip + 7 ? "Triângulo invertido" : Math.abs(bust - hip) <= 6 && waist < bust - 18 ? "Ampulheta" : waist > hip * 0.86 ? "Oval" : "Retangular",
-    sizeRecommendations: {
-      Brasil: bust < 92 ? "P/M" : bust < 104 ? "M/G" : "G/GG",
-      Internacional: bust < 92 ? "S/M" : bust < 104 ? "M/L" : "L/XL",
-      Europeu: waist < 76 ? "36/38" : waist < 88 ? "40/42" : "44+",
-      "Calça número": waist < 78 ? "38/40" : waist < 90 ? "42/44" : "46+",
-      Sutiã: "Confirme busto e tórax com fita métrica",
-    },
-    styleRecommendations: [
-      { title: "Cintura marcada", tag: "Casual", tip: "Peças transpassadas e cós médio valorizam a proporção.", avoid: "Modelagens sem estrutura se quiser destacar a cintura.", emoji: "👖" },
-      { title: "Linha vertical", tag: "Trabalho", tip: "Blazer aberto e decote V alongam com naturalidade.", avoid: "Contrastes muito horizontais no ponto de maior volume.", emoji: "🧥" },
-      { title: "Movimento leve", tag: "Festa", tip: "Saias evasê e tecidos fluidos dão equilíbrio ao caimento.", emoji: "✨" },
-    ],
-    fitnessAssessment: {
-      bmi,
-      bmiClass,
-      waistRisk: waist >= 88 ? "Atenção: cintura elevada; converse com profissional de saúde." : "Circunferência dentro de uma faixa usual para acompanhamento.",
-      bodyFatEstimate: "Estimativa visual conservadora",
-      summary: `Segundo os dados informados, o IMC está classificado como ${bmiClass.toLowerCase()}.`,
-    },
-    clothing: [
-      { category: "Blusas/Camisetas", size: bust < 92 ? "P/M" : bust < 104 ? "M/G" : "G/GG", fitTip: "Priorize busto e ombros; ajuste punho se manga passar do pulso." },
-      { category: "Calças", size: waist < 78 ? "38/40" : waist < 90 ? "42/44" : "46+", fitTip: "Escolha pela maior medida entre cintura e quadril; barra provável pelo entrepernas." },
-      { category: "Vestidos", size: hip > bust + 8 ? "Base pelo quadril" : "Base pelo busto", fitTip: "Modelagens envelope e evasê toleram melhor pequenas variações." },
-    ],
-    adjustments: [
-      "Compare o entrepernas estimado com a tabela da marca para prever barra.",
-      "Compare o comprimento do braço com a manga para prever ajuste de punho.",
-      "Use fita métrica real para confirmar medidas antes de compras caras.",
-    ],
-    nutritionNotes: [
-      "Peso e medidas são estimativas visuais, úteis para triagem e acompanhamento, não diagnóstico.",
-      "Para evolução nutricional, registre medidas sempre no mesmo horário e postura.",
-    ],
+    scan_id: crypto.randomUUID(),
+    analyzed_at: new Date().toISOString(),
+    input_data: { photos_provided: [payload.imageDataUrl ? "front" : undefined, payload.sideImageDataUrl ? "side" : undefined].filter(Boolean), user_provided_height_cm: payload.heightCm ?? null, user_provided_weight_kg: payload.weightKg ?? null, gender: payload.gender ?? null, goal: payload.shoppingGoal ?? null },
+    measurements: { height_cm: { value: height, confidence: "media" }, weight_kg: { value: weight, confidence: "media" }, bust_cm: { value: bust, confidence: "media" }, underbust_cm: { value: Math.round(bust * 0.83), confidence: "baixa" }, waist_cm: { value: waist, confidence: "media" }, hip_cm: { value: hip, confidence: "media" }, shoulder_width_cm: { value: Math.round(height * 0.255), confidence: "media" }, inseam_cm: { value: manual.inseam_cm ?? Math.round(height * 0.455), confidence: "media" }, outseam_cm: { value: Math.round(height * 0.59), confidence: "media" }, arm_length_cm: { value: manual.arm_length_cm ?? Math.round(height * 0.33), confidence: "media" }, thigh_cm: { value: Math.round(hip * 0.56), confidence: "baixa" }, neck_cm: { value: Math.round(height * 0.21), confidence: "media" }, torso_length_cm: { value: Math.round(height * 0.25), confidence: "media" } },
+    body_analysis: { bmi, bmi_category: bmiClass, body_fat_estimate_pct: null, body_fat_disclaimer: "Estimativa visual. Consulte um profissional para avaliação precisa.", body_type: bodyType, waist_to_hip_ratio: Number((waist / hip).toFixed(2)), abdominal_risk: waist >= 88 ? "Atenção" : "Baixo" },
+    clothing_sizes: { size_brazil: bust < 92 ? "P/M" : bust < 104 ? "M/G" : "G/GG", size_international: bust < 92 ? "S/M" : bust < 104 ? "M/L" : "L/XL", size_european: waist < 76 ? 38 : waist < 88 ? 42 : 44, pants_number_brazil: waist < 78 ? 40 : waist < 90 ? 44 : 46, bra_size: "Confirme busto e tórax", shoe_size_br: null },
+    tailoring: { hem_adjustment_cm: 0, hem_note: "Compare o entrepernas estimado com a tabela da marca para prever barra.", sleeve_adjustment_cm: 0, sleeve_note: "Compare o comprimento do braço com a manga para prever ajuste de punho.", shoulder_fit: "Padrão", waist_fit_suggestion: "Use fita métrica real para confirmar medidas antes de compras caras." },
+    style_recommendations: { body_type_description: `Tipo ${bodyType}: recomendações baseadas nas proporções estimadas.`, what_to_wear: ["Peças com cintura marcada", "Blazer aberto", "Tecidos com movimento"], what_to_avoid: ["Modelagens sem estrutura se quiser destacar a cintura"], best_necklines: ["Decote V"], best_pants_styles: ["Reta", "Cintura média"], best_dress_styles: ["Envelope", "Evasê"], pattern_tips: "Evite contrastes horizontais no ponto de maior volume." },
+    quality_assessment: { overall_confidence: "media", photo_quality_issues: ["Estimativa demonstrativa"], manual_input_recommended: ["thigh_cm", "underbust_cm"], accuracy_note: "Para maior precisão, informe medidas manuais e use roupa justa na próxima foto." },
   };
 };
 
@@ -198,7 +158,7 @@ serve(async (req) => {
 
     const system = `Você é o motor de visão por IA do app Encaixe, equivalente a um GPT-4o Vision para análise multimodal de fotos corporais, tamanhos de roupa, estilo e avaliação fitness em português brasileiro. Responda somente JSON válido. Use fotos frontal/lateral quando existirem, medidas manuais e contexto da página do produto para estimar medidas em centímetros, calcular IMC, classificar tipo corporal (Triângulo, Retangular, Ampulheta, Oval, Triângulo invertido), sugerir tamanhos Brasil/internacional/europeu/calça/sutiã quando aplicável, ajustes de barra/punho/ombro e recomendações de estilo acolhedoras. Seja conservador, indique confiança, não seja clínico ou harsh, não identifique pessoa, idade real ou atributos sensíveis pela imagem e sempre diga que avaliação nutricional é estimativa e não substitui profissional de saúde.`;
 
-    const userText = `Dados opcionais: altura=${payload.heightCm ?? "não informado"}cm, peso=${payload.weightKg ?? "não informado"}kg, idade=${payload.age ?? "não informado"}, gênero/modelagem=${payload.gender ?? "não informado"}, objetivo=${payload.shoppingGoal ?? "compra online e avaliação física"}. Contexto da loja/produto extraído do link: ${productContext}. Retorne JSON com: confidence number 0-100, disclaimer string, measurements {height_cm, estimated_weight_kg, bust_cm, waist_cm, hip_cm, inseam_cm, outseam_cm, arm_length_cm, shoulder_width_cm, thigh_cm}, fitProfile string, bodyType string, sizeRecommendations com Brasil, Internacional, Europeu, Calça número e Sutiã quando aplicável, clothing array de {category,size,fitTip} incluindo recomendação específica do produto quando houver tabela, adjustments array citando barra para peças inferiores e manga/punho/ombro para blusas/camisas quando aplicável, nutritionNotes array.`;
+    const userText = `Dados opcionais: altura=${payload.heightCm ?? "não informado"}cm, peso=${payload.weightKg ?? "não informado"}kg, idade=${payload.age ?? "não informado"}, gênero/modelagem=${payload.gender ?? "não informado"}, objetivo=${payload.shoppingGoal ?? "compra online e avaliação física"}. Contexto da loja/produto extraído do link: ${productContext}. Retorne exatamente um JSON no formato: scan_id, analyzed_at, input_data {photos_provided, user_provided_height_cm, user_provided_weight_kg, gender, goal}, measurements com cada medida como {value, confidence} para height_cm, weight_kg, bust_cm, underbust_cm, waist_cm, hip_cm, shoulder_width_cm, inseam_cm, outseam_cm, arm_length_cm, thigh_cm, neck_cm, torso_length_cm; body_analysis {bmi, bmi_category, body_fat_estimate_pct, body_fat_disclaimer, body_type, waist_to_hip_ratio, abdominal_risk}; clothing_sizes {size_brazil, size_international, size_european, pants_number_brazil, bra_size, shoe_size_br}; tailoring {hem_adjustment_cm, hem_note, sleeve_adjustment_cm, sleeve_note, shoulder_fit, waist_fit_suggestion}; style_recommendations {body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles, pattern_tips}; quality_assessment {overall_confidence, photo_quality_issues, manual_input_recommended, accuracy_note}.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
