@@ -345,6 +345,8 @@ const Index = () => {
   const [objective, setObjective] = useState("Ambos");
   const [productUrl, setProductUrl] = useState("");
   const [notes, setNotes] = useState("Comprar roupas online com menos troca");
+  const [bioimpedance, setBioimpedance] = useState<Record<string, string>>({});
+  const [bioFileName, setBioFileName] = useState("");
   const [consent, setConsent] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -357,6 +359,15 @@ const Index = () => {
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
   const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
   const accountType = profile?.account_type ?? "b2c";
+
+  const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
+    bodyFatPct: parseNumber(bioimpedance.bodyFatPct ?? ""),
+    muscleMassKg: parseNumber(bioimpedance.muscleMassKg ?? ""),
+    visceralFat: parseNumber(bioimpedance.visceralFat ?? ""),
+    waterPct: parseNumber(bioimpedance.waterPct ?? ""),
+    bmr: parseNumber(bioimpedance.bmr ?? ""),
+    source: bioFileName ? `Arquivo temporário: ${bioFileName}` : undefined,
+  }), [bioFileName, bioimpedance]);
 
   const measurementRows = useMemo(() => {
     const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
