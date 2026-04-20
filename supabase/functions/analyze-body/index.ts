@@ -118,7 +118,12 @@ serve(async (req) => {
     if (response.status === 402) {
       return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace para continuar." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    if (!response.ok) throw new Error(await response.text());
+    if (!response.ok) {
+      console.error("AI gateway returned", response.status, await response.text());
+      return new Response(JSON.stringify(fallbackAnalysis(payload)), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
@@ -129,8 +134,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("analyze-body error", error);
-    return new Response(JSON.stringify({ error: "Não foi possível analisar a imagem agora." }), {
-      status: 500,
+    return new Response(JSON.stringify(fallbackAnalysis({})), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
