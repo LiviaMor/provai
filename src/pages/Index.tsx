@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -165,6 +165,26 @@ const formatMeasure = (key: string, value?: number | null) => {
   return `${Math.round(value)}cm`;
 };
 
+const TEMP_PHOTOS_KEY = "encaixe-temporary-photos";
+const TEMP_PHOTOS_TTL_MS = 2 * 60 * 60 * 1000;
+
+const asTextArray = (value: unknown) => Array.isArray(value) ? value.map(textOf).filter(Boolean) : value ? [textOf(value)] : [];
+
+const readTemporaryPhotos = () => {
+  try {
+    const stored = sessionStorage.getItem(TEMP_PHOTOS_KEY);
+    if (!stored) return { frontPreview: "", sidePreview: "" };
+    const parsed = JSON.parse(stored) as { frontPreview?: string; sidePreview?: string; savedAt?: number };
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > TEMP_PHOTOS_TTL_MS) {
+      sessionStorage.removeItem(TEMP_PHOTOS_KEY);
+      return { frontPreview: "", sidePreview: "" };
+    }
+    return { frontPreview: parsed.frontPreview ?? "", sidePreview: parsed.sidePreview ?? "" };
+  } catch {
+    return { frontPreview: "", sidePreview: "" };
+  }
+};
+
 const textOf = (value: unknown) => {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {
@@ -225,10 +245,10 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
       adjustments: [tailoring.hem_note, tailoring.sleeve_note, `Ombro: ${tailoring.shoulder_fit ?? "em avaliação"}`].filter(Boolean).map(String),
       nutritionNotes: [data.body_analysis?.body_fat_disclaimer, data.quality_assessment?.accuracy_note].filter(Boolean).map(String),
       styleRecommendations: [
-        { title: "Valorize", tag: "Estilo", tip: [...(style.what_to_wear ?? []), ...(style.best_necklines ?? [])].join(", ") || style.body_type_description || "Peças que equilibram proporções.", emoji: "✨" },
-        { title: "Evite", tag: "Atenção", tip: (style.what_to_avoid ?? []).join(", ") || "Modelagens que prejudiquem o caimento desejado.", emoji: "⚠️" },
-        { title: "Calças", tag: "Caimento", tip: (style.best_pants_styles ?? []).join(", ") || "Confira cintura, quadril e barra.", emoji: "👖" },
-        { title: "Vestidos", tag: "Ocasião", tip: (style.best_dress_styles ?? []).join(", ") || style.pattern_tips || "Modelagens com cintura definida.", emoji: "👗" },
+        { title: "Valorize", tag: "Estilo", tip: [...asTextArray(style.what_to_wear), ...asTextArray(style.best_necklines)].join(", ") || style.body_type_description || "Peças que equilibram proporções.", emoji: "✨" },
+        { title: "Evite", tag: "Atenção", tip: asTextArray(style.what_to_avoid).join(", ") || "Modelagens que prejudiquem o caimento desejado.", emoji: "⚠️" },
+        { title: "Calças", tag: "Caimento", tip: asTextArray(style.best_pants_styles).join(", ") || "Confira cintura, quadril e barra.", emoji: "👖" },
+        { title: "Vestidos", tag: "Ocasião", tip: asTextArray(style.best_dress_styles).join(", ") || style.pattern_tips || "Modelagens com cintura definida.", emoji: "👗" },
       ],
     };
   }
@@ -265,8 +285,9 @@ const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
 
 const Index = () => {
   const [mode, setMode] = useState<FlowMode>("home");
-  const [frontPreview, setFrontPreview] = useState("");
-  const [sidePreview, setSidePreview] = useState("");
+  const temporaryPhotos = useMemo(readTemporaryPhotos, []);
+  const [frontPreview, setFrontPreview] = useState(temporaryPhotos.frontPreview);
+  const [sidePreview, setSidePreview] = useState(temporaryPhotos.sidePreview);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [gender, setGender] = useState("Feminino");
   const [objective, setObjective] = useState("Ambos");
@@ -294,13 +315,24 @@ const Index = () => {
     }));
   }, [currentMeasurements]);
 
+  useEffect(() => {
+    if (!frontPreview && !sidePreview) {
+      sessionStorage.removeItem(TEMP_PHOTOS_KEY);
+      return;
+    }
+    sessionStorage.setItem(TEMP_PHOTOS_KEY, JSON.stringify({ frontPreview, sidePreview, savedAt: Date.now() }));
+  }, [frontPreview, sidePreview]);
+
   const onImageChange = (event: ChangeEvent<HTMLInputElement>, kind: "front" | "side") => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("Envie uma imagem válida.");
     if (file.size > 7 * 1024 * 1024) return toast.error("Use uma foto de até 7MB para análise mais rápida.");
     const reader = new FileReader();
-    reader.onload = () => (kind === "front" ? setFrontPreview(String(reader.result)) : setSidePreview(String(reader.result)));
+    reader.onload = () => {
+      kind === "front" ? setFrontPreview(String(reader.result)) : setSidePreview(String(reader.result));
+      toast.success("Foto salva temporariamente neste dispositivo.");
+    };
     reader.readAsDataURL(file);
   };
 
@@ -512,7 +544,7 @@ const Index = () => {
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
-              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. As fotos não são armazenadas após o processamento.</label>}
+              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. As fotos ficam salvas temporariamente neste dispositivo e expiram automaticamente.</label>}
               <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
             </div>
           </form>
