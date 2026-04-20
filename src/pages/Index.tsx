@@ -512,9 +512,12 @@ const Index = () => {
             <span className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-glow"><ScanLine className="size-5" /></span>
             Encaixe
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={signIn} className="gap-2">
-            <LogIn className="size-4" /> Entrar
-          </Button>
+          <div className="flex items-center gap-2">
+            {userId && <Button type="button" variant="outline" size="sm" onClick={toggleAccountType}>{accountType.toUpperCase()}</Button>}
+            <Button type="button" variant="ghost" size="sm" onClick={userId ? signOut : signIn} className="gap-2">
+              <LogIn className="size-4" /> {userId ? "Sair" : "Entrar"}
+            </Button>
+          </div>
         </nav>
 
         {mode === "home" && (
@@ -597,7 +600,7 @@ const Index = () => {
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
-              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. As fotos ficam salvas temporariamente neste dispositivo e expiram automaticamente.</label>}
+              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
               <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
             </div>
           </form>
