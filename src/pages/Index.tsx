@@ -92,6 +92,13 @@ type PurchaseRisk = {
   detail: string;
 };
 
+type UserProfile = {
+  user_id: string;
+  display_name?: string | null;
+  account_type: "b2c" | "b2b";
+  company_name?: string | null;
+};
+
 const measureLabels: Record<string, string> = {
   height_cm: "Altura",
   estimated_weight_kg: "Peso",
@@ -288,6 +295,8 @@ const Index = () => {
   const temporaryPhotos = useMemo(readTemporaryPhotos, []);
   const [frontPreview, setFrontPreview] = useState(temporaryPhotos.frontPreview);
   const [sidePreview, setSidePreview] = useState(temporaryPhotos.sidePreview);
+  const [userId, setUserId] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [gender, setGender] = useState("Feminino");
   const [objective, setObjective] = useState("Ambos");
@@ -304,6 +313,7 @@ const Index = () => {
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
   const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
+  const accountType = profile?.account_type ?? "b2c";
 
   const measurementRows = useMemo(() => {
     const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
@@ -314,6 +324,34 @@ const Index = () => {
       status: key === "inseam_cm" ? "→ barra: +3cm" : key === "arm_length_cm" ? "→ punho padrão" : "✓",
     }));
   }, [currentMeasurements]);
+
+  useEffect(() => {
+    const ensureProfile = async (id: string, metadata?: Record<string, unknown>) => {
+      const { data } = await (supabase as any).from("profiles").select("user_id, display_name, account_type, company_name").eq("user_id", id).maybeSingle();
+      if (data) return setProfile(data);
+      const fallbackProfile = {
+        user_id: id,
+        display_name: String(metadata?.full_name ?? metadata?.name ?? ""),
+        avatar_url: String(metadata?.avatar_url ?? ""),
+        account_type: "b2c",
+      };
+      const { data: created } = await (supabase as any).from("profiles").insert(fallbackProfile).select("user_id, display_name, account_type, company_name").single();
+      setProfile(created ?? fallbackProfile);
+    };
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const id = session?.user.id ?? "";
+      setUserId(id);
+      if (!id) return setProfile(null);
+      setTimeout(() => ensureProfile(id, session?.user.user_metadata), 0);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      const id = data.session?.user.id ?? "";
+      setUserId(id);
+      if (id) ensureProfile(id, data.session?.user.user_metadata);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!frontPreview && !sidePreview) {
@@ -353,14 +391,15 @@ const Index = () => {
     };
     setHistory((prev) => [...prev.filter((entry) => entry.date !== "Hoje"), item]);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (!userId) return;
+    if (!userId) {
+      toast.info("Faça login para salvar esta análise no histórico.");
+      return;
+    }
 
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
       title: "Avaliação Encaixe",
-      source: frontPreview ? "photo" : "manual",
+      source: frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`,
       gender,
       objective,
       product_url: productUrl || null,
@@ -451,6 +490,20 @@ const Index = () => {
     if (result?.error) toast.error("Não foi possível iniciar o login.");
   };
 
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    toast.success("Sessão encerrada.");
+  };
+
+  const toggleAccountType = async () => {
+    if (!userId) return toast.error("Entre para definir B2C ou B2B.");
+    const nextType = accountType === "b2b" ? "b2c" : "b2b";
+    const { data, error } = await (supabase as any).from("profiles").update({ account_type: nextType }).eq("user_id", userId).select("user_id, display_name, account_type, company_name").single();
+    if (error) return toast.error("Não foi possível atualizar o perfil.");
+    setProfile(data);
+    toast.success(nextType === "b2b" ? "Modo B2B ativado." : "Modo B2C ativado.");
+  };
+
   return (
     <main className="min-h-screen bg-app-radial text-foreground">
       <section className="container min-h-screen max-w-6xl py-5 sm:py-8">
@@ -459,9 +512,12 @@ const Index = () => {
             <span className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-glow"><ScanLine className="size-5" /></span>
             Encaixe
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={signIn} className="gap-2">
-            <LogIn className="size-4" /> Entrar
-          </Button>
+          <div className="flex items-center gap-2">
+            {userId && <Button type="button" variant="outline" size="sm" onClick={toggleAccountType}>{accountType.toUpperCase()}</Button>}
+            <Button type="button" variant="ghost" size="sm" onClick={userId ? signOut : signIn} className="gap-2">
+              <LogIn className="size-4" /> {userId ? "Sair" : "Entrar"}
+            </Button>
+          </div>
         </nav>
 
         {mode === "home" && (
@@ -544,7 +600,7 @@ const Index = () => {
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
-              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. As fotos ficam salvas temporariamente neste dispositivo e expiram automaticamente.</label>}
+              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
               <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
             </div>
           </form>
