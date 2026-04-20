@@ -58,7 +58,20 @@ type FitnessAssessment = {
   bmiClass?: string;
   waistRisk?: string;
   bodyFatEstimate?: string;
+  muscleMassEstimate?: string;
+  abdominalFatEstimate?: string;
+  tissueDistribution?: string;
+  bmr?: number;
   summary?: string;
+};
+
+type BioimpedanceData = {
+  bodyFatPct?: number;
+  muscleMassKg?: number;
+  visceralFat?: number;
+  waterPct?: number;
+  bmr?: number;
+  source?: string;
 };
 
 type Analysis = {
@@ -120,10 +133,20 @@ const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: str
   { key: "height_cm", label: "Altura (cm)", placeholder: "170" },
   { key: "estimated_weight_kg", label: "Peso (kg)", placeholder: "68" },
   { key: "bust_cm", label: "Busto/Tórax (cm)", placeholder: "92" },
+  { key: "underbust_cm", label: "Abaixo do busto (cm)", placeholder: "76" },
   { key: "waist_cm", label: "Cintura (cm)", placeholder: "74" },
   { key: "hip_cm", label: "Quadril (cm)", placeholder: "99" },
+  { key: "thigh_cm", label: "Coxa (cm)", placeholder: "58" },
   { key: "inseam_cm", label: "Comprimento da perna (cm)", placeholder: "76" },
   { key: "arm_length_cm", label: "Comprimento do braço (cm)", placeholder: "58" },
+];
+
+const bioimpedanceFields: Array<{ key: keyof BioimpedanceData; label: string; placeholder: string }> = [
+  { key: "bodyFatPct", label: "Gordura corporal (%)", placeholder: "28" },
+  { key: "muscleMassKg", label: "Massa muscular (kg)", placeholder: "42" },
+  { key: "visceralFat", label: "Gordura visceral", placeholder: "8" },
+  { key: "waterPct", label: "Água corporal (%)", placeholder: "52" },
+  { key: "bmr", label: "TMB do exame", placeholder: "1450" },
 ];
 
 const defaultStyles: StyleTip[] = [
