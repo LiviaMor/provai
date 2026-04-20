@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 
-type MeasurementKey = "height_cm" | "estimated_weight_kg" | "bust_cm" | "waist_cm" | "hip_cm" | "inseam_cm" | "arm_length_cm" | "shoulder_width_cm" | "neck_cm";
+type MeasurementKey = "height_cm" | "estimated_weight_kg" | "weight_kg" | "bust_cm" | "underbust_cm" | "waist_cm" | "hip_cm" | "inseam_cm" | "outseam_cm" | "arm_length_cm" | "shoulder_width_cm" | "neck_cm" | "thigh_cm" | "torso_length_cm";
 
 type Measurements = Partial<Record<MeasurementKey, number>>;
 
@@ -95,13 +95,18 @@ type PurchaseRisk = {
 const measureLabels: Record<string, string> = {
   height_cm: "Altura",
   estimated_weight_kg: "Peso",
+  weight_kg: "Peso",
   bust_cm: "Busto/Tórax",
+  underbust_cm: "Abaixo do busto",
   waist_cm: "Cintura",
   hip_cm: "Quadril",
   inseam_cm: "Perna (inseam)",
+  outseam_cm: "Perna externa",
   arm_length_cm: "Braço",
   shoulder_width_cm: "Ombros",
   neck_cm: "Pescoço",
+  thigh_cm: "Coxa",
+  torso_length_cm: "Tronco",
 };
 
 const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: string }> = [
@@ -167,6 +172,67 @@ const textOf = (value: unknown) => {
     return String(item.recommendation ?? item.tip ?? item.summary ?? JSON.stringify(item));
   }
   return String(value ?? "");
+};
+
+const confidenceScore = (value: unknown) => {
+  if (typeof value === "number") return value;
+  const text = String(value ?? "").toLowerCase();
+  if (text.includes("alta")) return 82;
+  if (text.includes("media") || text.includes("média")) return 62;
+  if (text.includes("baixa")) return 42;
+  return 55;
+};
+
+const normalizeMeasurements = (raw: unknown): Measurements => {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  return Object.entries(source).reduce<Measurements>((acc, [key, value]) => {
+    const numeric = typeof value === "object" && value ? Number((value as Record<string, unknown>).value) : Number(value);
+    if (Number.isFinite(numeric)) acc[key === "weight_kg" ? "estimated_weight_kg" : (key as MeasurementKey)] = numeric;
+    return acc;
+  }, {});
+};
+
+const normalizeAnalysis = (raw: unknown): Analysis => {
+  const data = (raw ?? {}) as Record<string, any>;
+  if (data.body_analysis || data.clothing_sizes || data.tailoring) {
+    const measurements = normalizeMeasurements(data.measurements);
+    const tailoring = data.tailoring ?? {};
+    const style = data.style_recommendations ?? {};
+    return {
+      confidence: confidenceScore(data.quality_assessment?.overall_confidence),
+      disclaimer: data.body_analysis?.body_fat_disclaimer ?? "Estimativa visual. Consulte um profissional para avaliação precisa.",
+      measurements,
+      fitProfile: style.body_type_description ?? tailoring.waist_fit_suggestion ?? "Perfil de caimento calculado por medidas e produto.",
+      bodyType: data.body_analysis?.body_type,
+      sizeRecommendations: {
+        Brasil: data.clothing_sizes?.size_brazil ?? "—",
+        Internacional: data.clothing_sizes?.size_international ?? "—",
+        Europeu: String(data.clothing_sizes?.size_european ?? "—"),
+        "Calça número": String(data.clothing_sizes?.pants_number_brazil ?? "—"),
+        Sutiã: data.clothing_sizes?.bra_size ?? "—",
+      },
+      fitnessAssessment: {
+        bmi: data.body_analysis?.bmi,
+        bmiClass: data.body_analysis?.bmi_category,
+        waistRisk: `Risco abdominal: ${data.body_analysis?.abdominal_risk ?? "em avaliação"}. Relação cintura/quadril: ${data.body_analysis?.waist_to_hip_ratio ?? "—"}`,
+        bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct ? `${data.body_analysis.body_fat_estimate_pct}%` : "Estimativa visual conservadora",
+        summary: data.body_analysis?.body_fat_disclaimer,
+      },
+      clothing: [
+        { category: "Blusas/Camisas", size: data.clothing_sizes?.size_brazil ?? "—", fitTip: tailoring.waist_fit_suggestion ?? "Confira busto, cintura e ombro na tabela da marca." },
+        { category: "Calças", size: String(data.clothing_sizes?.pants_number_brazil ?? "—"), fitTip: tailoring.hem_note ?? "Compare cintura, quadril e entrepernas." },
+      ],
+      adjustments: [tailoring.hem_note, tailoring.sleeve_note, `Ombro: ${tailoring.shoulder_fit ?? "em avaliação"}`].filter(Boolean).map(String),
+      nutritionNotes: [data.body_analysis?.body_fat_disclaimer, data.quality_assessment?.accuracy_note].filter(Boolean).map(String),
+      styleRecommendations: [
+        { title: "Valorize", tag: "Estilo", tip: [...(style.what_to_wear ?? []), ...(style.best_necklines ?? [])].join(", ") || style.body_type_description || "Peças que equilibram proporções.", emoji: "✨" },
+        { title: "Evite", tag: "Atenção", tip: (style.what_to_avoid ?? []).join(", ") || "Modelagens que prejudiquem o caimento desejado.", emoji: "⚠️" },
+        { title: "Calças", tag: "Caimento", tip: (style.best_pants_styles ?? []).join(", ") || "Confira cintura, quadril e barra.", emoji: "👖" },
+        { title: "Vestidos", tag: "Ocasião", tip: (style.best_dress_styles ?? []).join(", ") || style.pattern_tips || "Modelagens com cintura definida.", emoji: "👗" },
+      ],
+    };
+  }
+  return data as Analysis;
 };
 
 const calculateFallbackFitness = (measurements: Measurements): FitnessAssessment => {
