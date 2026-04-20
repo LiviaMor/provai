@@ -290,9 +290,29 @@ const calculateFallbackFitness = (measurements: Measurements): FitnessAssessment
   const weight = measurements.estimated_weight_kg;
   const bmi = heightM && weight ? Number((weight / (heightM * heightM)).toFixed(1)) : undefined;
   const bmiClass = !bmi ? "Dados insuficientes" : bmi < 18.5 ? "Abaixo do peso" : bmi < 25 ? "Normal" : bmi < 30 ? "Sobrepeso" : "Obeso";
-  const waistRisk = measurements.waist_cm && measurements.waist_cm >= 88 ? "Atenção: cintura elevada" : "Dentro de uma faixa usual";
-  return { bmi, bmiClass, waistRisk, bodyFatEstimate: "Estimativa visual conservadora", summary: "Segundo os dados informados, seu peso está dentro de uma faixa que deve ser avaliada junto ao contexto individual." };
+  const waist = measurements.waist_cm;
+  const hip = measurements.hip_cm;
+  const waistHip = waist && hip ? Number((waist / hip).toFixed(2)) : undefined;
+  const bodyFatPct = bmi ? Math.max(12, Math.min(48, Math.round(bmi * 1.18 + (waistHip ? waistHip * 18 : 5)))) : undefined;
+  const muscleMass = weight && bodyFatPct ? Number((weight * (1 - bodyFatPct / 100) * 0.72).toFixed(1)) : undefined;
+  const bmr = weight && measurements.height_cm ? Math.round(10 * weight + 6.25 * measurements.height_cm - 5 * 35 + 5) : undefined;
+  const waistRisk = waist && waist >= 88 ? "Atenção: cintura elevada" : "Dentro de uma faixa usual";
+  return { bmi, bmiClass, waistRisk, bodyFatEstimate: bodyFatPct ? `${bodyFatPct}% estimado` : "Estimativa visual conservadora", muscleMassEstimate: muscleMass ? `${muscleMass}kg estimados` : "Informe bioimpedância para refinar", abdominalFatEstimate: waistHip ? `RCQ ${waistHip} com distribuição ${waistHip >= 0.85 ? "central" : "periférica/equilibrada"}` : "Depende de cintura e quadril", tissueDistribution: "Estimativa por peso, cintura, quadril e proporções visuais; use bioimpedância para acompanhar evolução clínica.", bmr, summary: "Avaliação estimativa para apoio a médicos e nutricionistas, sem substituir consulta, exame físico ou laudo clínico." };
 };
+
+const mergeBioimpedanceFitness = (fitness: FitnessAssessment, bio: BioimpedanceData): FitnessAssessment => ({
+  ...fitness,
+  bodyFatEstimate: bio.bodyFatPct ? `${bio.bodyFatPct}% informado por bioimpedância` : fitness.bodyFatEstimate,
+  muscleMassEstimate: bio.muscleMassKg ? `${bio.muscleMassKg}kg informados` : fitness.muscleMassEstimate,
+  abdominalFatEstimate: bio.visceralFat ? `Gordura visceral ${bio.visceralFat}` : fitness.abdominalFatEstimate,
+  bmr: bio.bmr ?? fitness.bmr,
+  tissueDistribution: [
+    bio.bodyFatPct ? `Gordura corporal ${bio.bodyFatPct}%` : undefined,
+    bio.muscleMassKg ? `massa muscular ${bio.muscleMassKg}kg` : undefined,
+    bio.waterPct ? `água corporal ${bio.waterPct}%` : undefined,
+    bio.source,
+  ].filter(Boolean).join(" · ") || fitness.tissueDistribution,
+});
 
 const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
   const measurements = analysis.measurements;
