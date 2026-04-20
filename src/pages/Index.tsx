@@ -353,7 +353,7 @@ const Index = () => {
   const [history, setHistory] = useState(historySeed);
 
   const currentMeasurements = analysis?.measurements ?? {};
-  const fitness = analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements);
+  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements), bioimpedanceData);
   const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
@@ -478,7 +478,7 @@ const Index = () => {
       measurements: result.measurements,
       size_recommendations: result.sizeRecommendations ?? {},
       style_recommendations: result.styleRecommendations ?? [],
-      fitness_assessment: result.fitnessAssessment ?? {},
+      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData },
       notes,
     });
   };
@@ -513,6 +513,8 @@ const Index = () => {
     if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
 
     const result = normalizeAnalysis(data);
+    result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements), bioimpedanceData);
+    setManual((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.measurements).map(([key, value]) => [key, String(value)])) }));
     setAnalysis(result);
     setMode("results");
     await saveHistory(result);
