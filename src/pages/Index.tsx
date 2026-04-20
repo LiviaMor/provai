@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -165,6 +165,26 @@ const formatMeasure = (key: string, value?: number | null) => {
   return `${Math.round(value)}cm`;
 };
 
+const TEMP_PHOTOS_KEY = "encaixe-temporary-photos";
+const TEMP_PHOTOS_TTL_MS = 2 * 60 * 60 * 1000;
+
+const asTextArray = (value: unknown) => Array.isArray(value) ? value.map(textOf).filter(Boolean) : value ? [textOf(value)] : [];
+
+const readTemporaryPhotos = () => {
+  try {
+    const stored = sessionStorage.getItem(TEMP_PHOTOS_KEY);
+    if (!stored) return { frontPreview: "", sidePreview: "" };
+    const parsed = JSON.parse(stored) as { frontPreview?: string; sidePreview?: string; savedAt?: number };
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > TEMP_PHOTOS_TTL_MS) {
+      sessionStorage.removeItem(TEMP_PHOTOS_KEY);
+      return { frontPreview: "", sidePreview: "" };
+    }
+    return { frontPreview: parsed.frontPreview ?? "", sidePreview: parsed.sidePreview ?? "" };
+  } catch {
+    return { frontPreview: "", sidePreview: "" };
+  }
+};
+
 const textOf = (value: unknown) => {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {
@@ -225,10 +245,10 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
       adjustments: [tailoring.hem_note, tailoring.sleeve_note, `Ombro: ${tailoring.shoulder_fit ?? "em avaliação"}`].filter(Boolean).map(String),
       nutritionNotes: [data.body_analysis?.body_fat_disclaimer, data.quality_assessment?.accuracy_note].filter(Boolean).map(String),
       styleRecommendations: [
-        { title: "Valorize", tag: "Estilo", tip: [...(style.what_to_wear ?? []), ...(style.best_necklines ?? [])].join(", ") || style.body_type_description || "Peças que equilibram proporções.", emoji: "✨" },
-        { title: "Evite", tag: "Atenção", tip: (style.what_to_avoid ?? []).join(", ") || "Modelagens que prejudiquem o caimento desejado.", emoji: "⚠️" },
-        { title: "Calças", tag: "Caimento", tip: (style.best_pants_styles ?? []).join(", ") || "Confira cintura, quadril e barra.", emoji: "👖" },
-        { title: "Vestidos", tag: "Ocasião", tip: (style.best_dress_styles ?? []).join(", ") || style.pattern_tips || "Modelagens com cintura definida.", emoji: "👗" },
+        { title: "Valorize", tag: "Estilo", tip: [...asTextArray(style.what_to_wear), ...asTextArray(style.best_necklines)].join(", ") || style.body_type_description || "Peças que equilibram proporções.", emoji: "✨" },
+        { title: "Evite", tag: "Atenção", tip: asTextArray(style.what_to_avoid).join(", ") || "Modelagens que prejudiquem o caimento desejado.", emoji: "⚠️" },
+        { title: "Calças", tag: "Caimento", tip: asTextArray(style.best_pants_styles).join(", ") || "Confira cintura, quadril e barra.", emoji: "👖" },
+        { title: "Vestidos", tag: "Ocasião", tip: asTextArray(style.best_dress_styles).join(", ") || style.pattern_tips || "Modelagens com cintura definida.", emoji: "👗" },
       ],
     };
   }
