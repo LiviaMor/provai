@@ -26,8 +26,10 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,6 +83,13 @@ type HistoryItem = {
   waist: number;
   hip: number;
   weight: number;
+};
+
+type PurchaseRisk = {
+  region: string;
+  risk: "Baixo" | "Médio" | "Alto";
+  score: number;
+  detail: string;
 };
 
 const measureLabels: Record<string, string> = {
@@ -161,6 +170,25 @@ const calculateFallbackFitness = (measurements: Measurements): FitnessAssessment
   return { bmi, bmiClass, waistRisk, bodyFatEstimate: "Estimativa visual conservadora", summary: "Segundo os dados informados, seu peso está dentro de uma faixa que deve ser avaliada junto ao contexto individual." };
 };
 
+const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
+  const measurements = analysis.measurements;
+  const context = [analysis.fitProfile, ...analysis.adjustments, ...analysis.clothing.map((item) => `${item.category} ${item.size} ${item.fitTip}`)].map(textOf).join(" ").toLowerCase();
+  const has = (terms: string[]) => terms.some((term) => context.includes(term));
+  const level = (base: number, terms: string[]) => {
+    const score = Math.min(92, base + (has(terms) ? 24 : 0) + (analysis.confidence < 55 ? 12 : 0));
+    return { score, risk: score >= 70 ? "Alto" : score >= 45 ? "Médio" : "Baixo" } as const;
+  };
+  const rows = [
+    { region: "Cintura", ...level(measurements.waist_cm && measurements.hip_cm && measurements.waist_cm > measurements.hip_cm * 0.82 ? 52 : 28, ["cintura", "cós", "apert"]), detail: "Confira cós, cintura alta/baixa e folga para sentar." },
+    { region: "Quadril", ...level(measurements.hip_cm && measurements.waist_cm && measurements.hip_cm - measurements.waist_cm > 24 ? 50 : 30, ["quadril", "anca", "modelagem reta"]), detail: "Priorize a maior medida entre cintura e quadril." },
+    { region: "Busto", ...level(measurements.bust_cm && measurements.shoulder_width_cm && measurements.bust_cm > measurements.shoulder_width_cm * 2.4 ? 48 : 26, ["busto", "tórax", "peito"]), detail: "Observe fechamento, pences e elasticidade do tecido." },
+    { region: "Barra", ...level(measurements.inseam_cm ? 42 : 58, ["barra", "entrepernas", "comprimento"]), detail: "Compare entrepernas com a tabela para prever ajuste de barra." },
+    { region: "Manga", ...level(measurements.arm_length_cm ? 40 : 55, ["manga", "punho", "braço"]), detail: "Confira comprimento da manga até o punho." },
+    { region: "Ombro", ...level(measurements.shoulder_width_cm ? 38 : 54, ["ombro", "ombros", "cava"]), detail: "Blusas e camisas devem alinhar costura ao ombro." },
+  ];
+  return rows;
+};
+
 const Index = () => {
   const [mode, setMode] = useState<FlowMode>("home");
   const [frontPreview, setFrontPreview] = useState("");
@@ -179,6 +207,7 @@ const Index = () => {
   const fitness = analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements);
   const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
+  const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
   const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
 
   const measurementRows = useMemo(() => {
@@ -410,7 +439,7 @@ const Index = () => {
                 <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">IMC</p><p className="font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">Tipo corporal</p><p className="font-display text-2xl font-semibold">{analysis.bodyType ?? "Triângulo"}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">% gordura</p><p className="font-display text-xl font-semibold">{fitness.bodyFatEstimate}</p></div></div><div className="overflow-hidden rounded-2xl border"><table className="w-full text-sm"><tbody>{measurementRows.map((row) => <tr key={row.key} className="border-b last:border-0"><td className="p-3 font-bold">{row.label}</td><td className="p-3">{row.value}</td><td className="p-3 text-muted-foreground">{row.status}</td></tr>)}</tbody></table></div></div>
               </TabsContent>
 
-              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div></TabsContent>
+              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
