@@ -391,14 +391,15 @@ const Index = () => {
     };
     setHistory((prev) => [...prev.filter((entry) => entry.date !== "Hoje"), item]);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (!userId) return;
+    if (!userId) {
+      toast.info("Faça login para salvar esta análise no histórico.");
+      return;
+    }
 
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
       title: "Avaliação Encaixe",
-      source: frontPreview ? "photo" : "manual",
+      source: frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`,
       gender,
       objective,
       product_url: productUrl || null,
@@ -487,6 +488,20 @@ const Index = () => {
   const signIn = async () => {
     const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.href });
     if (result?.error) toast.error("Não foi possível iniciar o login.");
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    toast.success("Sessão encerrada.");
+  };
+
+  const toggleAccountType = async () => {
+    if (!userId) return toast.error("Entre para definir B2C ou B2B.");
+    const nextType = accountType === "b2b" ? "b2c" : "b2b";
+    const { data, error } = await (supabase as any).from("profiles").update({ account_type: nextType }).eq("user_id", userId).select("user_id, display_name, account_type, company_name").single();
+    if (error) return toast.error("Não foi possível atualizar o perfil.");
+    setProfile(data);
+    toast.success(nextType === "b2b" ? "Modo B2B ativado." : "Modo B2C ativado.");
   };
 
   return (
