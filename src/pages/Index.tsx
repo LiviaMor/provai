@@ -551,7 +551,7 @@ const Index = () => {
             <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel backdrop-blur">
               <Button type="button" variant="ghost" size="sm" onClick={() => setMode("home")}>← Voltar</Button>
               <h2 className="font-display text-3xl font-semibold">{mode === "photo" ? "Captura guiada" : "Medidas manuais"}</h2>
-              <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. A foto lateral melhora a leitura de postura, cintura e quadril.</p>
+              <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. Você pode tirar uma foto na hora ou enviar uma imagem da galeria.</p>
               <div className="grid gap-2">
                 {["Foto frente", "Foto lateral", "Processando"].map((step, index) => (
                   <div key={step} className="flex items-center gap-3 rounded-2xl bg-muted p-3 text-sm font-bold">
@@ -566,14 +566,28 @@ const Index = () => {
             <div className="space-y-4 rounded-2xl border bg-panel-glow p-4 shadow-panel backdrop-blur sm:p-5">
               {mode === "photo" && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Label htmlFor="front" className="relative flex aspect-[3/4] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
-                    {frontPreview ? <><img src={frontPreview} alt="Preview da foto frontal para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview frente · tocar para trocar</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto de frente</span>}
-                  </Label>
-                  <Label htmlFor="side" className="relative flex aspect-[3/4] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
-                    {sidePreview ? <><img src={sidePreview} alt="Preview da foto lateral para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview lateral · tocar para trocar</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto lateral</span>}
-                  </Label>
-                  <Input id="front" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
-                  <Input id="side" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
+                  <div className="space-y-2">
+                    <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
+                      {frontPreview ? <><img src={frontPreview} alt="Preview da foto frontal para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview frente</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto de frente</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Label htmlFor="front-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
+                      <Label htmlFor="front-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload</Label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
+                      {sidePreview ? <><img src={sidePreview} alt="Preview da foto lateral para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview lateral</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto lateral</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Label htmlFor="side-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
+                      <Label htmlFor="side-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload</Label>
+                    </div>
+                  </div>
+                  <Input id="front-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
+                  <Input id="front-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
+                  <Input id="side-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
+                  <Input id="side-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
                 </div>
               )}
 
