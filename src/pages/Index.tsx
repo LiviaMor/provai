@@ -802,6 +802,88 @@ const Index = () => {
 
               <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Tabela por marca</h3><div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[760px] text-sm"><thead className="bg-muted text-left"><tr><th className="p-3">Marca</th><th className="p-3">Medida indicada</th><th className="p-3">Blusas/Camisas</th><th className="p-3">Calças/Saias</th><th className="p-3">Observação</th></tr></thead><tbody>{brandFitGuide.map((row) => <tr key={row.brand} className="border-t"><td className="p-3 font-bold">{row.brand}</td><td className="p-3"><div className="flex flex-wrap gap-2"><Badge variant="secondary">Topo {row.suggestedTop}</Badge><Badge variant="outline">Baixo {row.suggestedBottom}</Badge></div></td><td className="p-3">{row.top}</td><td className="p-3">{row.bottom}</td><td className="p-3 text-muted-foreground">{row.note}</td></tr>)}</tbody></table></div><p className="mt-3 text-sm leading-6 text-muted-foreground">A indicação usa busto para blusas e a maior compatibilidade entre cintura/quadril para partes de baixo; se ficar entre dois tamanhos, escolha pelo tecido e caimento desejado.</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
 
+              <TabsContent value="tryon" className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <div className="flex items-center gap-2"><Wand2 className="size-5 text-primary" /><h3 className="font-display text-2xl font-semibold">Provador virtual</h3></div>
+                  <p className="text-sm leading-6 text-muted-foreground">Combine sua foto com a peça (link ou upload) para visualizar o caimento ultra-realista, recomendações de tamanho, combinações e colorimetria.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-muted-foreground">Sua foto</p>
+                      <div className="aspect-[3/4] overflow-hidden rounded-2xl border bg-secondary">
+                        {frontPreview ? <img src={frontPreview} alt="Sua foto frontal" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center p-4 text-center text-xs text-muted-foreground">Volte e envie sua foto frontal</div>}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-muted-foreground">Roupa de interesse</p>
+                      <div className="aspect-[3/4] overflow-hidden rounded-2xl border bg-secondary">
+                        {garmentPreview ? <img src={garmentPreview} alt="Peça de interesse" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center p-4 text-center text-xs text-muted-foreground">Use o link ou faça upload</div>}
+                      </div>
+                      <Label htmlFor="garment-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload da peça</Label>
+                      <Input id="garment-upload" type="file" accept="image/*" onChange={onGarmentChange} className="sr-only" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tryon-url" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link do produto</Label>
+                    <Input id="tryon-url" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} />
+                  </div>
+                  <Button type="button" variant="hero" size="lg" onClick={runTryon} disabled={isTryingOn} className="w-full">{isTryingOn ? "Gerando provador ultra-realista..." : "Gerar provador virtual"}<Wand2 className="size-4" /></Button>
+                  <p className="text-xs leading-5 text-muted-foreground">Imagem gerada por IA, apenas para visualização do caimento. Pode haver pequenas variações de cor/textura em relação ao produto real.</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="rounded-2xl border bg-panel-glow p-3 shadow-panel">
+                    <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary">
+                      {isTryingOn && <div className="body-scan-loader scan-grid absolute inset-0" />}
+                      {tryon?.tryonImage ? <img src={tryon.tryonImage} alt="Provador virtual gerado por IA" className="h-full w-full object-cover" /> : !isTryingOn && <span className="grid justify-items-center gap-3 p-6 text-center text-sm text-muted-foreground"><Sparkles className="size-8 text-primary" /> Seu provador virtual aparecerá aqui</span>}
+                    </div>
+                    {tryon?.tryonImage && <a href={tryon.tryonImage} download="provador-encaixe.png" className="mt-3 flex items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</a>}
+                  </div>
+                  {tryon?.advice && (
+                    <div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel">
+                      <div>
+                        <p className="text-sm font-bold text-primary">Tamanho ideal</p>
+                        <p className="font-display text-lg font-semibold">{tryon.advice.size_advice ?? "—"}</p>
+                      </div>
+                      {tryon.advice.fit_notes?.length ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-bold">Pontos de atenção</p>
+                          {tryon.advice.fit_notes.map((note, i) => <p key={i} className="flex gap-2 rounded-2xl bg-muted p-3 text-sm"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{note}</p>)}
+                        </div>
+                      ) : null}
+                      {tryon.advice.combinations?.length ? (
+                        <div className="space-y-2">
+                          <p className="flex items-center gap-2 text-sm font-bold"><Shirt className="size-4 text-primary" /> Combinações sugeridas</p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {tryon.advice.combinations.map((combo, i) => (
+                              <article key={i} className="rounded-2xl bg-muted p-3 text-sm">
+                                <p className="font-bold">{combo.title}</p>
+                                <p className="mt-1 text-muted-foreground">{combo.pieces?.join(" + ")}</p>
+                                <Badge variant="outline" className="mt-2">{combo.occasion}</Badge>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {tryon.advice.color_palette ? (
+                        <div className="space-y-2 rounded-2xl bg-muted p-4">
+                          <p className="flex items-center gap-2 text-sm font-bold"><Palette className="size-4 text-primary" /> Colorimetria · subtom {tryon.advice.color_palette.undertone ?? "—"}</p>
+                          <p className="text-sm leading-6 text-muted-foreground">{tryon.advice.color_palette.rationale}</p>
+                          <div>
+                            <p className="text-xs font-bold">Cores que valorizam</p>
+                            <div className="mt-1 flex flex-wrap gap-2">{tryon.advice.color_palette.best_colors?.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}</div>
+                          </div>
+                          {tryon.advice.color_palette.avoid_colors?.length ? (
+                            <div>
+                              <p className="text-xs font-bold">Evite</p>
+                              <div className="mt-1 flex flex-wrap gap-2">{tryon.advice.color_palette.avoid_colors.map((c) => <Badge key={c} variant="destructive">{c}</Badge>)}</div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
               <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><HeartPulse className="mb-4 size-8 text-primary" /><p className="text-sm text-muted-foreground">IMC e TMB</p><div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div><p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p><p className="mt-2 text-sm text-muted-foreground">TMB: {fitness.bmr ? `${fitness.bmr} kcal/dia` : "—"}</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><Activity className="mb-4 size-8 text-accent" /><h3 className="font-display text-2xl font-semibold">Tecidos corporais</h3><div className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground"><p>Gordura: {fitness.bodyFatEstimate}</p><p>Massa muscular: {fitness.muscleMassEstimate ?? "—"}</p><p>Abdominal: {fitness.abdominalFatEstimate ?? fitness.waistRisk}</p></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><FileText className="mb-4 size-8 text-primary" /><h3 className="font-display text-2xl font-semibold">Resumo clínico</h3><p className="mt-3 leading-7 text-muted-foreground">{fitness.tissueDistribution ?? fitness.summary}</p><p className="mt-4 rounded-2xl bg-muted p-3 text-sm">Avaliação estimativa para apoio médico/nutricional; não substitui consulta, exame físico ou laudo.</p><Button type="button" variant="outline" className="mt-4 w-full">Compartilhe com seu nutricionista</Button></div></TabsContent>
