@@ -4,6 +4,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import ColoracaoHome from "./pages/coloracao/Home.tsx";
+import ColoracaoUpload from "./pages/coloracao/Upload.tsx";
+import ColoracaoProcessing from "./pages/coloracao/Processing.tsx";
+import ColoracaoReport from "./pages/coloracao/Report.tsx";
 
 const queryClient = new QueryClient();
 
@@ -14,6 +18,11 @@ const App = () => (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/coloracao" element={<ColoracaoHome />} />
+        <Route path="/coloracao/upload" element={<ColoracaoUpload />} />
+        <Route path="/coloracao/processando" element={<ColoracaoProcessing />} />
+        <Route path="/coloracao/relatorio" element={<ColoracaoReport />} />
+        <Route path="/coloracao/exemplo" element={<ColoracaoReport demo />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
