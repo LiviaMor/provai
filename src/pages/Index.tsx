@@ -121,6 +121,17 @@ type UserProfile = {
   company_name?: string | null;
 };
 
+type TryonResult = {
+  tryonImage?: string;
+  advice?: {
+    size_advice?: string;
+    fit_notes?: string[];
+    combinations?: Array<{ title: string; pieces: string[]; occasion: string }>;
+    color_palette?: { undertone?: string; best_colors?: string[]; avoid_colors?: string[]; rationale?: string };
+    confidence?: string;
+  };
+};
+
 const measureLabels: Record<string, string> = {
   height_cm: "Altura",
   estimated_weight_kg: "Peso",
