@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Download, Image as ImageIcon, Share2, ArrowLeft, Check, X, Droplet, Thermometer, Eye, Sun, Sparkles, Flower2, Contrast, Layers } from "lucide-react";
+import { Download, Image as ImageIcon, Share2, ArrowLeft, Check, X, Droplet, Thermometer, Eye, Sun, Sparkles, Flower2, Contrast, Layers, FileText, Instagram, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ColorAnalysis, ColorChip } from "@/types/colorAnalysis";
 import { toast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
@@ -56,6 +57,7 @@ export default function Report({ demo = false }: { demo?: boolean }) {
   const navigate = useNavigate();
   const [analysis, setAnalysis] = useState<ColorAnalysis | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [exporting, setExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,32 +84,168 @@ export default function Report({ demo = false }: { demo?: boolean }) {
 
   const primary = photos[0] || examplePhoto;
   const seasonFull = `${analysis.season}${analysis.season_modifier ? ` (${analysis.season_modifier})` : ""}`.toUpperCase();
+  const fileBase = `coloracao-${analysis.season}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  // Renderiza o relatório em largura fixa para garantir layout consistente
+  const captureReport = async (renderWidth = 1240): Promise<HTMLCanvasElement> => {
+    const node = reportRef.current!;
+    const originalWidth = node.style.width;
+    const originalMaxWidth = node.style.maxWidth;
+    node.style.width = `${renderWidth}px`;
+    node.style.maxWidth = `${renderWidth}px`;
+    // aguardar layout/fontes
+    await document.fonts?.ready;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try {
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#F4EBD3",
+        windowWidth: renderWidth,
+        imageTimeout: 15000,
+      });
+      return canvas;
+    } finally {
+      node.style.width = originalWidth;
+      node.style.maxWidth = originalMaxWidth;
+    }
+  };
+
+  const fitToCanvas = (source: HTMLCanvasElement, targetW: number, targetH: number, bg = "#F4EBD3") => {
+    const out = document.createElement("canvas");
+    out.width = targetW;
+    out.height = targetH;
+    const ctx = out.getContext("2d")!;
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, targetW, targetH);
+    // largura cheia, altura proporcional, alinhado ao topo
+    const scale = targetW / source.width;
+    const drawW = targetW;
+    const drawH = source.height * scale;
+    ctx.drawImage(source, 0, 0, drawW, drawH);
+    return out;
+  };
 
   const exportPng = async () => {
-    if (!reportRef.current) return;
-    toast({ title: "Gerando imagem..." });
+    if (exporting) return;
+    setExporting(true);
+    toast({ title: "Gerando PNG em alta resolução..." });
     try {
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: "#F4EBD3" });
+      const canvas = await captureReport(1240);
       const link = document.createElement("a");
-      link.download = `analise-coloracao-${analysis.season}.png`;
+      link.download = `${fileBase}-relatorio.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    } catch {
-      toast({ title: "Erro ao exportar", variant: "destructive" });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erro ao exportar PNG", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportInstagram = async (format: "post" | "story") => {
+    if (exporting) return;
+    setExporting(true);
+    const sizes = format === "post"
+      ? { w: 1080, h: 1350, label: "Instagram 4:5" }
+      : { w: 1080, h: 1920, label: "Instagram Stories" };
+    toast({ title: `Gerando ${sizes.label}...` });
+    try {
+      const captured = await captureReport(1080);
+      const aspect = sizes.w / sizes.h;
+      const sourceAspect = captured.width / captured.height;
+      let outCanvas: HTMLCanvasElement;
+      if (sourceAspect <= aspect) {
+        // mais alto: encaixa por largura, várias fatias possivelmente
+        outCanvas = fitToCanvas(captured, sizes.w, sizes.h);
+      } else {
+        outCanvas = fitToCanvas(captured, sizes.w, sizes.h);
+      }
+      // Para conteúdo longo, geramos múltiplas imagens (carrossel) cobrindo toda a altura
+      const scale = sizes.w / captured.width;
+      const totalScaledH = captured.height * scale;
+      const slides = Math.max(1, Math.ceil(totalScaledH / sizes.h));
+      if (slides === 1) {
+        const link = document.createElement("a");
+        link.download = `${fileBase}-${format}.png`;
+        link.href = outCanvas.toDataURL("image/png");
+        link.click();
+      } else {
+        for (let i = 0; i < slides; i++) {
+          const slide = document.createElement("canvas");
+          slide.width = sizes.w;
+          slide.height = sizes.h;
+          const ctx = slide.getContext("2d")!;
+          ctx.fillStyle = "#F4EBD3";
+          ctx.fillRect(0, 0, sizes.w, sizes.h);
+          // mapear pedaço da imagem original
+          const srcY = (i * sizes.h) / scale;
+          const srcH = Math.min(captured.height - srcY, sizes.h / scale);
+          ctx.drawImage(captured, 0, srcY, captured.width, srcH, 0, 0, sizes.w, srcH * scale);
+          // marca d'água sutil de página
+          ctx.fillStyle = "rgba(34,40,68,0.55)";
+          ctx.font = "600 22px 'DM Sans', system-ui, sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(`${i + 1}/${slides}`, sizes.w - 32, sizes.h - 28);
+          const link = document.createElement("a");
+          link.download = `${fileBase}-${format}-${i + 1}.png`;
+          link.href = slide.toDataURL("image/png");
+          link.click();
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        toast({ title: `${slides} imagens geradas`, description: "Use como carrossel no Instagram." });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erro ao exportar imagem", variant: "destructive" });
+    } finally {
+      setExporting(false);
     }
   };
 
   const exportPdf = async () => {
-    if (!reportRef.current) return;
-    toast({ title: "Gerando PDF..." });
+    if (exporting) return;
+    setExporting(true);
+    toast({ title: "Gerando PDF Premium..." });
     try {
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: "#F4EBD3" });
-      const img = canvas.toDataURL("image/jpeg", 0.92);
-      const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [canvas.width, canvas.height] });
-      pdf.addImage(img, "JPEG", 0, 0, canvas.width, canvas.height);
-      pdf.save(`analise-coloracao-${analysis.season}.pdf`);
-    } catch {
+      const canvas = await captureReport(1240);
+      // A4 retrato: 210 x 297 mm
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      // Total páginas necessárias
+      const totalPages = Math.max(1, Math.ceil(imgH / pageH));
+      // Para qualidade, fatiamos o canvas em pedaços do tamanho de uma página A4
+      const pxPerMm = canvas.width / pageW;
+      const pageHeightInPx = Math.floor(pageH * pxPerMm);
+      for (let i = 0; i < totalPages; i++) {
+        const slice = document.createElement("canvas");
+        slice.width = canvas.width;
+        slice.height = Math.min(pageHeightInPx, canvas.height - i * pageHeightInPx);
+        const ctx = slice.getContext("2d")!;
+        ctx.fillStyle = "#F4EBD3";
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, -i * pageHeightInPx);
+        const dataUrl = slice.toDataURL("image/jpeg", 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(dataUrl, "JPEG", 0, 0, imgW, (slice.height * imgW) / slice.width, undefined, "FAST");
+      }
+      pdf.setProperties({
+        title: `Análise de Coloração Pessoal — ${seasonFull}`,
+        subject: "Relatório de Coloração Pessoal IA",
+        author: "Atelier de Coloração",
+        creator: "Atelier de Coloração",
+      });
+      pdf.save(`${fileBase}-premium.pdf`);
+    } catch (e) {
+      console.error(e);
       toast({ title: "Erro ao exportar PDF", variant: "destructive" });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -133,9 +271,50 @@ export default function Report({ demo = false }: { demo?: boolean }) {
             <ArrowLeft className="h-4 w-4" /> Início
           </Link>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="rounded-full gap-2" onClick={share}><Share2 className="h-4 w-4" /><span className="hidden sm:inline">Compartilhar</span></Button>
-            <Button size="sm" variant="outline" className="rounded-full gap-2" onClick={exportPng}><ImageIcon className="h-4 w-4" /><span className="hidden sm:inline">PNG</span></Button>
-            <Button size="sm" className="rounded-full gap-2" onClick={exportPdf}><Download className="h-4 w-4" /><span className="hidden sm:inline">PDF Premium</span></Button>
+            <Button size="sm" variant="outline" className="rounded-full gap-2" onClick={share} disabled={exporting}>
+              <Share2 className="h-4 w-4" /><span className="hidden sm:inline">Compartilhar</span>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="rounded-full gap-2" disabled={exporting}>
+                  {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  <span className="hidden sm:inline">{exporting ? "Exportando..." : "Exportar"}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Documentos</DropdownMenuLabel>
+                <DropdownMenuItem onClick={exportPdf} className="gap-3">
+                  <FileText className="h-4 w-4" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">PDF Premium · A4</p>
+                    <p className="text-[11px] text-muted-foreground">Alta resolução, multi-página</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportPng} className="gap-3">
+                  <ImageIcon className="h-4 w-4" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">PNG do Relatório</p>
+                    <p className="text-[11px] text-muted-foreground">Imagem única em alta</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Instagram</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => exportInstagram("post")} className="gap-3">
+                  <Instagram className="h-4 w-4" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Post 4:5 · 1080×1350</p>
+                    <p className="text-[11px] text-muted-foreground">Carrossel se necessário</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportInstagram("story")} className="gap-3">
+                  <Square className="h-4 w-4" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Stories 9:16 · 1080×1920</p>
+                    <p className="text-[11px] text-muted-foreground">Carrossel de stories</p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
