@@ -14,12 +14,14 @@ import {
   Link2,
   Lock,
   LogIn,
+  Palette,
   Ruler,
   ScanLine,
   Shirt,
   Sparkles,
   Upload,
   UserRound,
+  Wand2,
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jsPDF } from "jspdf";
