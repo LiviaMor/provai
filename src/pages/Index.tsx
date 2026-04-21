@@ -107,9 +107,9 @@ type PurchaseRisk = {
 
 type BrandSizeOption = {
   label: string;
-  bust?: [number, number];
-  waist?: [number, number];
-  hip?: [number, number];
+  bust?: number[];
+  waist?: number[];
+  hip?: number[];
 };
 
 type UserProfile = {
