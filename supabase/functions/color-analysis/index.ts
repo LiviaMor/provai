@@ -755,8 +755,22 @@ Retorne JSON exatamente neste formato:
   "prints": "estampas que combinam",
   "golden_tips": ["dica 1","dica 2","dica 3","dica 4"],
   "final_quote": "frase poética e luxuosa de fechamento",
-  "confidence": "alta|media|baixa"
-}`;
+  "confidence": "alta|media|baixa",
+  "wardrobe_intro": "frase curta apresentando o guarda-roupa ideal para a estação",
+  "wardrobe": [
+    {
+      "category": "Blusa|Calça|Vestido|Casaco|Acessório",
+      "piece": "nome da peça (ex: Blusa de tricô gola alta)",
+      "cuts": ["3 cortes/modelagens recomendadas"],
+      "fabrics": ["2-3 tecidos sugeridos"],
+      "colors": [{"name":"...","hex":"#RRGGBB"}, "...3 cores DENTRO da paleta da estação"],
+      "why": "explicação técnica de 1-2 frases sobre por que essas cores e cortes funcionam para a estação detectada (cite subtom, profundidade ou contraste)",
+      "occasion": "ocasião sugerida"
+    }
+  ]
+}
+
+IMPORTANTE: o array "wardrobe" deve ter EXATAMENTE 5 itens cobrindo, nesta ordem: Blusa, Calça, Vestido, Casaco, Acessório. As cores em cada peça devem ser EXTRAÍDAS da best_palette/neutrals da estação detectada.`;
 
     const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [{ type: "text", text: userPrompt }];
     for (const img of valid) content.push({ type: "image_url", image_url: { url: img } });
