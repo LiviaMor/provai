@@ -568,6 +568,43 @@ const Index = () => {
     toast.success("Análise Encaixe concluída.");
   };
 
+  const onGarmentChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Envie uma imagem da roupa.");
+    if (file.size > 6 * 1024 * 1024) return toast.error("Use uma imagem de até 6MB da peça.");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setGarmentPreview(String(reader.result));
+      toast.success("Roupa carregada para o provador.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const runTryon = async () => {
+    if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
+    if (!garmentPreview && !productUrl.trim()) return toast.error("Envie a foto da roupa ou cole o link do produto.");
+    setIsTryingOn(true);
+    setTryon(null);
+    const brandSize = analysis?.sizeRecommendations?.Brasil ?? analysis?.clothing?.[0]?.size;
+    const { data, error } = await supabase.functions.invoke("virtual-tryon", {
+      body: {
+        userImageDataUrl: frontPreview,
+        garmentImageDataUrl: garmentPreview || undefined,
+        productUrl: productUrl.trim() || undefined,
+        measurements: currentMeasurements,
+        gender,
+        bodyType: analysis?.bodyType,
+        brandSize,
+        notes,
+      },
+    });
+    setIsTryingOn(false);
+    if (error || data?.error) return toast.error(data?.error ?? "Não foi possível gerar o provador.");
+    setTryon(data as TryonResult);
+    toast.success("Provador virtual pronto.");
+  };
+
   const exportPdf = () => {
     if (!analysis) return toast.error("Faça uma análise antes de exportar.");
     const pdf = new jsPDF();
