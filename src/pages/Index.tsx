@@ -121,13 +121,29 @@ type UserProfile = {
   company_name?: string | null;
 };
 
+type ColorChip = { name: string; hex: string };
+
 type TryonResult = {
   tryonImage?: string;
   advice?: {
     size_advice?: string;
     fit_notes?: string[];
     combinations?: Array<{ title: string; pieces: string[]; occasion: string }>;
-    color_palette?: { undertone?: string; best_colors?: string[]; avoid_colors?: string[]; rationale?: string };
+    color_palette?: {
+      undertone?: string;
+      season?: string;
+      skin_tone_hex?: string;
+      garment_color_hex?: string;
+      garment_color_name?: string;
+      harmony_with_garment?: string;
+      harmony_explanation?: string;
+      best_colors?: Array<ColorChip | string>;
+      avoid_colors?: Array<ColorChip | string>;
+      neutrals?: Array<ColorChip | string>;
+      metals?: string[];
+      combine_guide?: Array<{ role: string; suggestion: string; hex?: string }>;
+      rationale?: string;
+    };
     confidence?: string;
   };
 };
