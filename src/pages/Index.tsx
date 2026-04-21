@@ -390,6 +390,9 @@ const Index = () => {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [history, setHistory] = useState(historySeed);
+  const [garmentPreview, setGarmentPreview] = useState("");
+  const [tryon, setTryon] = useState<TryonResult | null>(null);
+  const [isTryingOn, setIsTryingOn] = useState(false);
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
