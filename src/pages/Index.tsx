@@ -14,12 +14,14 @@ import {
   Link2,
   Lock,
   LogIn,
+  Palette,
   Ruler,
   ScanLine,
   Shirt,
   Sparkles,
   Upload,
   UserRound,
+  Wand2,
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jsPDF } from "jspdf";
@@ -117,6 +119,17 @@ type UserProfile = {
   display_name?: string | null;
   account_type: "b2c" | "b2b";
   company_name?: string | null;
+};
+
+type TryonResult = {
+  tryonImage?: string;
+  advice?: {
+    size_advice?: string;
+    fit_notes?: string[];
+    combinations?: Array<{ title: string; pieces: string[]; occasion: string }>;
+    color_palette?: { undertone?: string; best_colors?: string[]; avoid_colors?: string[]; rationale?: string };
+    confidence?: string;
+  };
 };
 
 const measureLabels: Record<string, string> = {
@@ -377,6 +390,9 @@ const Index = () => {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [history, setHistory] = useState(historySeed);
+  const [garmentPreview, setGarmentPreview] = useState("");
+  const [tryon, setTryon] = useState<TryonResult | null>(null);
+  const [isTryingOn, setIsTryingOn] = useState(false);
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
@@ -550,6 +566,43 @@ const Index = () => {
     setMode("results");
     await saveHistory(result);
     toast.success("Análise Encaixe concluída.");
+  };
+
+  const onGarmentChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Envie uma imagem da roupa.");
+    if (file.size > 6 * 1024 * 1024) return toast.error("Use uma imagem de até 6MB da peça.");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setGarmentPreview(String(reader.result));
+      toast.success("Roupa carregada para o provador.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const runTryon = async () => {
+    if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
+    if (!garmentPreview && !productUrl.trim()) return toast.error("Envie a foto da roupa ou cole o link do produto.");
+    setIsTryingOn(true);
+    setTryon(null);
+    const brandSize = analysis?.sizeRecommendations?.Brasil ?? analysis?.clothing?.[0]?.size;
+    const { data, error } = await supabase.functions.invoke("virtual-tryon", {
+      body: {
+        userImageDataUrl: frontPreview,
+        garmentImageDataUrl: garmentPreview || undefined,
+        productUrl: productUrl.trim() || undefined,
+        measurements: currentMeasurements,
+        gender,
+        bodyType: analysis?.bodyType,
+        brandSize,
+        notes,
+      },
+    });
+    setIsTryingOn(false);
+    if (error || data?.error) return toast.error(data?.error ?? "Não foi possível gerar o provador.");
+    setTryon(data as TryonResult);
+    toast.success("Provador virtual pronto.");
   };
 
   const exportPdf = () => {
@@ -740,7 +793,7 @@ const Index = () => {
             </div>
 
             <Tabs defaultValue="dashboard" className="space-y-4">
-              <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl lg:grid-cols-5"><TabsTrigger value="dashboard">Medidas</TabsTrigger><TabsTrigger value="sizes">Tamanhos</TabsTrigger><TabsTrigger value="style">Estilo</TabsTrigger><TabsTrigger value="fitness">Fitness</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger></TabsList>
+              <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl lg:grid-cols-6"><TabsTrigger value="dashboard">Medidas</TabsTrigger><TabsTrigger value="sizes">Tamanhos</TabsTrigger><TabsTrigger value="tryon">Provador</TabsTrigger><TabsTrigger value="style">Estilo</TabsTrigger><TabsTrigger value="fitness">Fitness</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger></TabsList>
 
               <TabsContent value="dashboard" className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
                 <div className="relative min-h-[420px] rounded-2xl border bg-panel-glow p-6 shadow-panel"><div className="absolute left-1/2 top-12 size-20 -translate-x-1/2 rounded-full border-2 border-primary/40" /><div className="absolute left-1/2 top-32 h-64 w-32 -translate-x-1/2 rounded-full border-2 border-accent/60" /><span className="absolute left-8 top-32 rounded-full bg-card px-3 py-1 text-sm font-bold">Busto {formatMeasure("bust_cm", currentMeasurements.bust_cm)}</span><span className="absolute right-8 top-52 rounded-full bg-card px-3 py-1 text-sm font-bold">Cintura {formatMeasure("waist_cm", currentMeasurements.waist_cm)}</span><span className="absolute left-8 bottom-24 rounded-full bg-card px-3 py-1 text-sm font-bold">Quadril {formatMeasure("hip_cm", currentMeasurements.hip_cm)}</span></div>
@@ -748,6 +801,88 @@ const Index = () => {
               </TabsContent>
 
               <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Tabela por marca</h3><div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[760px] text-sm"><thead className="bg-muted text-left"><tr><th className="p-3">Marca</th><th className="p-3">Medida indicada</th><th className="p-3">Blusas/Camisas</th><th className="p-3">Calças/Saias</th><th className="p-3">Observação</th></tr></thead><tbody>{brandFitGuide.map((row) => <tr key={row.brand} className="border-t"><td className="p-3 font-bold">{row.brand}</td><td className="p-3"><div className="flex flex-wrap gap-2"><Badge variant="secondary">Topo {row.suggestedTop}</Badge><Badge variant="outline">Baixo {row.suggestedBottom}</Badge></div></td><td className="p-3">{row.top}</td><td className="p-3">{row.bottom}</td><td className="p-3 text-muted-foreground">{row.note}</td></tr>)}</tbody></table></div><p className="mt-3 text-sm leading-6 text-muted-foreground">A indicação usa busto para blusas e a maior compatibilidade entre cintura/quadril para partes de baixo; se ficar entre dois tamanhos, escolha pelo tecido e caimento desejado.</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
+
+              <TabsContent value="tryon" className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <div className="flex items-center gap-2"><Wand2 className="size-5 text-primary" /><h3 className="font-display text-2xl font-semibold">Provador virtual</h3></div>
+                  <p className="text-sm leading-6 text-muted-foreground">Combine sua foto com a peça (link ou upload) para visualizar o caimento ultra-realista, recomendações de tamanho, combinações e colorimetria.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-muted-foreground">Sua foto</p>
+                      <div className="aspect-[3/4] overflow-hidden rounded-2xl border bg-secondary">
+                        {frontPreview ? <img src={frontPreview} alt="Sua foto frontal" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center p-4 text-center text-xs text-muted-foreground">Volte e envie sua foto frontal</div>}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-muted-foreground">Roupa de interesse</p>
+                      <div className="aspect-[3/4] overflow-hidden rounded-2xl border bg-secondary">
+                        {garmentPreview ? <img src={garmentPreview} alt="Peça de interesse" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center p-4 text-center text-xs text-muted-foreground">Use o link ou faça upload</div>}
+                      </div>
+                      <Label htmlFor="garment-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload da peça</Label>
+                      <Input id="garment-upload" type="file" accept="image/*" onChange={onGarmentChange} className="sr-only" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tryon-url" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link do produto</Label>
+                    <Input id="tryon-url" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} />
+                  </div>
+                  <Button type="button" variant="hero" size="lg" onClick={runTryon} disabled={isTryingOn} className="w-full">{isTryingOn ? "Gerando provador ultra-realista..." : "Gerar provador virtual"}<Wand2 className="size-4" /></Button>
+                  <p className="text-xs leading-5 text-muted-foreground">Imagem gerada por IA, apenas para visualização do caimento. Pode haver pequenas variações de cor/textura em relação ao produto real.</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="rounded-2xl border bg-panel-glow p-3 shadow-panel">
+                    <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary">
+                      {isTryingOn && <div className="body-scan-loader scan-grid absolute inset-0" />}
+                      {tryon?.tryonImage ? <img src={tryon.tryonImage} alt="Provador virtual gerado por IA" className="h-full w-full object-cover" /> : !isTryingOn && <span className="grid justify-items-center gap-3 p-6 text-center text-sm text-muted-foreground"><Sparkles className="size-8 text-primary" /> Seu provador virtual aparecerá aqui</span>}
+                    </div>
+                    {tryon?.tryonImage && <a href={tryon.tryonImage} download="provador-encaixe.png" className="mt-3 flex items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</a>}
+                  </div>
+                  {tryon?.advice && (
+                    <div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel">
+                      <div>
+                        <p className="text-sm font-bold text-primary">Tamanho ideal</p>
+                        <p className="font-display text-lg font-semibold">{tryon.advice.size_advice ?? "—"}</p>
+                      </div>
+                      {tryon.advice.fit_notes?.length ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-bold">Pontos de atenção</p>
+                          {tryon.advice.fit_notes.map((note, i) => <p key={i} className="flex gap-2 rounded-2xl bg-muted p-3 text-sm"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{note}</p>)}
+                        </div>
+                      ) : null}
+                      {tryon.advice.combinations?.length ? (
+                        <div className="space-y-2">
+                          <p className="flex items-center gap-2 text-sm font-bold"><Shirt className="size-4 text-primary" /> Combinações sugeridas</p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {tryon.advice.combinations.map((combo, i) => (
+                              <article key={i} className="rounded-2xl bg-muted p-3 text-sm">
+                                <p className="font-bold">{combo.title}</p>
+                                <p className="mt-1 text-muted-foreground">{combo.pieces?.join(" + ")}</p>
+                                <Badge variant="outline" className="mt-2">{combo.occasion}</Badge>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {tryon.advice.color_palette ? (
+                        <div className="space-y-2 rounded-2xl bg-muted p-4">
+                          <p className="flex items-center gap-2 text-sm font-bold"><Palette className="size-4 text-primary" /> Colorimetria · subtom {tryon.advice.color_palette.undertone ?? "—"}</p>
+                          <p className="text-sm leading-6 text-muted-foreground">{tryon.advice.color_palette.rationale}</p>
+                          <div>
+                            <p className="text-xs font-bold">Cores que valorizam</p>
+                            <div className="mt-1 flex flex-wrap gap-2">{tryon.advice.color_palette.best_colors?.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}</div>
+                          </div>
+                          {tryon.advice.color_palette.avoid_colors?.length ? (
+                            <div>
+                              <p className="text-xs font-bold">Evite</p>
+                              <div className="mt-1 flex flex-wrap gap-2">{tryon.advice.color_palette.avoid_colors.map((c) => <Badge key={c} variant="destructive">{c}</Badge>)}</div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
