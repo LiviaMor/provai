@@ -879,22 +879,82 @@ const Index = () => {
                           </div>
                         </div>
                       ) : null}
-                      {tryon.advice.color_palette ? (
-                        <div className="space-y-2 rounded-2xl bg-muted p-4">
-                          <p className="flex items-center gap-2 text-sm font-bold"><Palette className="size-4 text-primary" /> Colorimetria · subtom {tryon.advice.color_palette.undertone ?? "—"}</p>
-                          <p className="text-sm leading-6 text-muted-foreground">{tryon.advice.color_palette.rationale}</p>
-                          <div>
-                            <p className="text-xs font-bold">Cores que valorizam</p>
-                            <div className="mt-1 flex flex-wrap gap-2">{tryon.advice.color_palette.best_colors?.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}</div>
+                      {tryon.advice.color_palette ? (() => {
+                        const cp = tryon.advice!.color_palette!;
+                        const toChip = (c: ColorChip | string): ColorChip => typeof c === "string" ? { name: c, hex: "#cccccc" } : c;
+                        const best = (cp.best_colors ?? []).map(toChip);
+                        const avoid = (cp.avoid_colors ?? []).map(toChip);
+                        const neutrals = (cp.neutrals ?? []).map(toChip);
+                        const Swatch = ({ chip, danger }: { chip: ColorChip; danger?: boolean }) => (
+                          <div className="flex items-center gap-2 rounded-full border bg-card px-2 py-1 text-xs font-bold">
+                            <span className={`size-4 rounded-full border ${danger ? "ring-2 ring-destructive/40" : ""}`} style={{ backgroundColor: chip.hex }} />
+                            {chip.name}
                           </div>
-                          {tryon.advice.color_palette.avoid_colors?.length ? (
-                            <div>
-                              <p className="text-xs font-bold">Evite</p>
-                              <div className="mt-1 flex flex-wrap gap-2">{tryon.advice.color_palette.avoid_colors.map((c) => <Badge key={c} variant="destructive">{c}</Badge>)}</div>
+                        );
+                        return (
+                          <div className="space-y-3 rounded-2xl bg-muted p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="flex items-center gap-2 text-sm font-bold"><Palette className="size-4 text-primary" /> Colorimetria automática</p>
+                              <Badge variant="outline">{cp.season ?? cp.undertone ?? "—"}</Badge>
                             </div>
-                          ) : null}
-                        </div>
-                      ) : null}
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {cp.skin_tone_hex && (
+                                <div className="flex items-center gap-3 rounded-2xl bg-card/80 p-3">
+                                  <span className="size-10 rounded-full border-2 border-border" style={{ backgroundColor: cp.skin_tone_hex }} />
+                                  <div><p className="text-xs text-muted-foreground">Subtom detectado</p><p className="text-sm font-bold">{cp.undertone ?? "—"} · {cp.skin_tone_hex}</p></div>
+                                </div>
+                              )}
+                              {cp.garment_color_hex && (
+                                <div className="flex items-center gap-3 rounded-2xl bg-card/80 p-3">
+                                  <span className="size-10 rounded-full border-2 border-border" style={{ backgroundColor: cp.garment_color_hex }} />
+                                  <div><p className="text-xs text-muted-foreground">Cor da peça</p><p className="text-sm font-bold">{cp.garment_color_name ?? cp.garment_color_hex}</p></div>
+                                </div>
+                              )}
+                            </div>
+                            {cp.harmony_explanation && (
+                              <div className="rounded-2xl bg-card/70 p-3 text-sm leading-6">
+                                <p className="text-xs font-bold uppercase text-muted-foreground">Harmonia com a peça · {cp.harmony_with_garment ?? "—"}</p>
+                                <p>{cp.harmony_explanation}</p>
+                              </div>
+                            )}
+                            {cp.rationale && <p className="text-sm leading-6 text-muted-foreground">{cp.rationale}</p>}
+                            {best.length > 0 && (
+                              <div>
+                                <p className="text-xs font-bold">Cores que valorizam</p>
+                                <div className="mt-1 flex flex-wrap gap-2">{best.map((c, i) => <Swatch key={`b-${i}-${c.hex}`} chip={c} />)}</div>
+                              </div>
+                            )}
+                            {neutrals.length > 0 && (
+                              <div>
+                                <p className="text-xs font-bold">Neutros base</p>
+                                <div className="mt-1 flex flex-wrap gap-2">{neutrals.map((c, i) => <Swatch key={`n-${i}-${c.hex}`} chip={c} />)}</div>
+                              </div>
+                            )}
+                            {avoid.length > 0 && (
+                              <div>
+                                <p className="text-xs font-bold">Evite</p>
+                                <div className="mt-1 flex flex-wrap gap-2">{avoid.map((c, i) => <Swatch key={`a-${i}-${c.hex}`} chip={c} danger />)}</div>
+                              </div>
+                            )}
+                            {cp.metals?.length ? (
+                              <div className="flex flex-wrap items-center gap-2"><p className="text-xs font-bold">Metais:</p>{cp.metals.map((m) => <Badge key={m} variant="secondary">{m}</Badge>)}</div>
+                            ) : null}
+                            {cp.combine_guide?.length ? (
+                              <div className="space-y-2">
+                                <p className="text-xs font-bold uppercase text-muted-foreground">Guia rápido para combinar com esta peça</p>
+                                <div className="grid gap-2 sm:grid-cols-3">
+                                  {cp.combine_guide.map((g, i) => (
+                                    <div key={`g-${i}`} className="rounded-2xl bg-card/80 p-3 text-sm">
+                                      <div className="flex items-center gap-2"><span className="size-6 rounded-full border" style={{ backgroundColor: g.hex ?? "#cccccc" }} /><p className="font-bold capitalize">{g.role}</p></div>
+                                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{g.suggestion}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })() : null}
                     </div>
                   )}
                 </div>
