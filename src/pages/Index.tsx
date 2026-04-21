@@ -325,6 +325,21 @@ const mergeBioimpedanceFitness = (fitness: FitnessAssessment, bio: BioimpedanceD
   ].filter(Boolean).join(" · ") || fitness.tissueDistribution,
 });
 
+const chooseBestSize = (options: BrandSizeOption[], measurements: Measurements, kind: "top" | "bottom") => {
+  const relevant = kind === "top" ? [measurements.bust_cm] : [measurements.waist_cm, measurements.hip_cm];
+  if (relevant.every((value) => !value)) return "Informe medidas";
+  const scoreOption = (option: BrandSizeOption) => {
+    const checks = kind === "top" ? [{ value: measurements.bust_cm, range: option.bust }] : [{ value: measurements.waist_cm, range: option.waist }, { value: measurements.hip_cm, range: option.hip }];
+    return checks.reduce((score, check) => {
+      if (!check.value || !check.range) return score + 12;
+      const [min, max] = check.range;
+      if (check.value >= min && check.value <= max) return score;
+      return score + Math.min(Math.abs(check.value - min), Math.abs(check.value - max));
+    }, 0);
+  };
+  return [...options].sort((a, b) => scoreOption(a) - scoreOption(b))[0]?.label ?? "Conferir tabela";
+};
+
 const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
   const measurements = analysis.measurements;
   const context = [analysis.fitProfile, ...analysis.adjustments, ...analysis.clothing.map((item) => `${item.category} ${item.size} ${item.fitTip}`)].map(textOf).join(" ").toLowerCase();
