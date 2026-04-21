@@ -105,6 +105,13 @@ type PurchaseRisk = {
   detail: string;
 };
 
+type BrandSizeOption = {
+  label: string;
+  bust?: [number, number];
+  waist?: [number, number];
+  hip?: [number, number];
+};
+
 type UserProfile = {
   user_id: string;
   display_name?: string | null;
@@ -165,11 +172,11 @@ const brandSizes = {
 };
 
 const brandSizeGuide = [
-  { brand: "Renner", top: "P 88-92 | M 94-98 | G 100-106", bottom: "38 72-76/96-100 | 40 78-82/102-106", note: "Modelagem brasileira regular; confira elasticidade." },
-  { brand: "C&A", top: "P 86-92 | M 94-100 | G 102-108", bottom: "38 70-76/94-100 | 40 78-84/102-108", note: "Boa base para peças casuais e jeans." },
-  { brand: "Shein", top: "S 86-90 | M 90-96 | L 96-102", bottom: "M 70-76/96-102 | L 76-82/102-108", note: "Costuma variar por vendedor; priorize tabela do produto." },
-  { brand: "Zara", top: "S 84-90 | M 90-96 | L 96-102", bottom: "38 70-74/96-100 | 40 74-78/100-104", note: "Tende a ter caimento mais ajustado." },
-  { brand: "Farm", top: "P 86-92 | M 92-98 | G 98-106", bottom: "P 68-74/94-100 | M 74-82/100-108", note: "Peças fluidas toleram mais variação no quadril." },
+  { brand: "Renner", top: "P 88-92 | M 94-98 | G 100-106", bottom: "38 72-76/96-100 | 40 78-82/102-106", note: "Modelagem brasileira regular; confira elasticidade.", topOptions: [{ label: "P", bust: [88, 92] }, { label: "M", bust: [94, 98] }, { label: "G", bust: [100, 106] }], bottomOptions: [{ label: "38", waist: [72, 76], hip: [96, 100] }, { label: "40", waist: [78, 82], hip: [102, 106] }] },
+  { brand: "C&A", top: "P 86-92 | M 94-100 | G 102-108", bottom: "38 70-76/94-100 | 40 78-84/102-108", note: "Boa base para peças casuais e jeans.", topOptions: [{ label: "P", bust: [86, 92] }, { label: "M", bust: [94, 100] }, { label: "G", bust: [102, 108] }], bottomOptions: [{ label: "38", waist: [70, 76], hip: [94, 100] }, { label: "40", waist: [78, 84], hip: [102, 108] }] },
+  { brand: "Shein", top: "S 86-90 | M 90-96 | L 96-102", bottom: "M 70-76/96-102 | L 76-82/102-108", note: "Costuma variar por vendedor; priorize tabela do produto.", topOptions: [{ label: "S", bust: [86, 90] }, { label: "M", bust: [90, 96] }, { label: "L", bust: [96, 102] }], bottomOptions: [{ label: "M", waist: [70, 76], hip: [96, 102] }, { label: "L", waist: [76, 82], hip: [102, 108] }] },
+  { brand: "Zara", top: "S 84-90 | M 90-96 | L 96-102", bottom: "38 70-74/96-100 | 40 74-78/100-104", note: "Tende a ter caimento mais ajustado.", topOptions: [{ label: "S", bust: [84, 90] }, { label: "M", bust: [90, 96] }, { label: "L", bust: [96, 102] }], bottomOptions: [{ label: "38", waist: [70, 74], hip: [96, 100] }, { label: "40", waist: [74, 78], hip: [100, 104] }] },
+  { brand: "Farm", top: "P 86-92 | M 92-98 | G 98-106", bottom: "P 68-74/94-100 | M 74-82/100-108", note: "Peças fluidas toleram mais variação no quadril.", topOptions: [{ label: "P", bust: [86, 92] }, { label: "M", bust: [92, 98] }, { label: "G", bust: [98, 106] }], bottomOptions: [{ label: "P", waist: [68, 74], hip: [94, 100] }, { label: "M", waist: [74, 82], hip: [100, 108] }] },
 ];
 
 const historySeed: HistoryItem[] = [
