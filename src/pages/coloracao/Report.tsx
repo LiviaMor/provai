@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Download, Image as ImageIcon, Share2, ArrowLeft, Check, X, Droplet, Thermometer, Eye, Sun, Sparkles, Flower2, Contrast, Layers } from "lucide-react";
+import { Download, Image as ImageIcon, Share2, ArrowLeft, Check, X, Droplet, Thermometer, Eye, Sun, Sparkles, Flower2, Contrast, Layers, FileText, Instagram, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ColorAnalysis, ColorChip } from "@/types/colorAnalysis";
 import { toast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
