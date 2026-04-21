@@ -34,8 +34,8 @@ const FaceTile = ({ photo, color, label, ok, why }: { photo: string; color: stri
 );
 
 const charIcons: Record<string, typeof Droplet> = {
-  depth: CircleHalf,
-  contrast: CircleHalf,
+  depth: Layers,
+  contrast: Contrast,
   undertone: Droplet,
   temperature: Thermometer,
   intensity: Eye,
