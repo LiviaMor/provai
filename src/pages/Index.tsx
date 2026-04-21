@@ -105,6 +105,13 @@ type PurchaseRisk = {
   detail: string;
 };
 
+type BrandSizeOption = {
+  label: string;
+  bust?: number[];
+  waist?: number[];
+  hip?: number[];
+};
+
 type UserProfile = {
   user_id: string;
   display_name?: string | null;
@@ -165,11 +172,11 @@ const brandSizes = {
 };
 
 const brandSizeGuide = [
-  { brand: "Renner", top: "P 88-92 | M 94-98 | G 100-106", bottom: "38 72-76/96-100 | 40 78-82/102-106", note: "Modelagem brasileira regular; confira elasticidade." },
-  { brand: "C&A", top: "P 86-92 | M 94-100 | G 102-108", bottom: "38 70-76/94-100 | 40 78-84/102-108", note: "Boa base para peças casuais e jeans." },
-  { brand: "Shein", top: "S 86-90 | M 90-96 | L 96-102", bottom: "M 70-76/96-102 | L 76-82/102-108", note: "Costuma variar por vendedor; priorize tabela do produto." },
-  { brand: "Zara", top: "S 84-90 | M 90-96 | L 96-102", bottom: "38 70-74/96-100 | 40 74-78/100-104", note: "Tende a ter caimento mais ajustado." },
-  { brand: "Farm", top: "P 86-92 | M 92-98 | G 98-106", bottom: "P 68-74/94-100 | M 74-82/100-108", note: "Peças fluidas toleram mais variação no quadril." },
+  { brand: "Renner", top: "P 88-92 | M 94-98 | G 100-106", bottom: "38 72-76/96-100 | 40 78-82/102-106", note: "Modelagem brasileira regular; confira elasticidade.", topOptions: [{ label: "P", bust: [88, 92] }, { label: "M", bust: [94, 98] }, { label: "G", bust: [100, 106] }], bottomOptions: [{ label: "38", waist: [72, 76], hip: [96, 100] }, { label: "40", waist: [78, 82], hip: [102, 106] }] },
+  { brand: "C&A", top: "P 86-92 | M 94-100 | G 102-108", bottom: "38 70-76/94-100 | 40 78-84/102-108", note: "Boa base para peças casuais e jeans.", topOptions: [{ label: "P", bust: [86, 92] }, { label: "M", bust: [94, 100] }, { label: "G", bust: [102, 108] }], bottomOptions: [{ label: "38", waist: [70, 76], hip: [94, 100] }, { label: "40", waist: [78, 84], hip: [102, 108] }] },
+  { brand: "Shein", top: "S 86-90 | M 90-96 | L 96-102", bottom: "M 70-76/96-102 | L 76-82/102-108", note: "Costuma variar por vendedor; priorize tabela do produto.", topOptions: [{ label: "S", bust: [86, 90] }, { label: "M", bust: [90, 96] }, { label: "L", bust: [96, 102] }], bottomOptions: [{ label: "M", waist: [70, 76], hip: [96, 102] }, { label: "L", waist: [76, 82], hip: [102, 108] }] },
+  { brand: "Zara", top: "S 84-90 | M 90-96 | L 96-102", bottom: "38 70-74/96-100 | 40 74-78/100-104", note: "Tende a ter caimento mais ajustado.", topOptions: [{ label: "S", bust: [84, 90] }, { label: "M", bust: [90, 96] }, { label: "L", bust: [96, 102] }], bottomOptions: [{ label: "38", waist: [70, 74], hip: [96, 100] }, { label: "40", waist: [74, 78], hip: [100, 104] }] },
+  { brand: "Farm", top: "P 86-92 | M 92-98 | G 98-106", bottom: "P 68-74/94-100 | M 74-82/100-108", note: "Peças fluidas toleram mais variação no quadril.", topOptions: [{ label: "P", bust: [86, 92] }, { label: "M", bust: [92, 98] }, { label: "G", bust: [98, 106] }], bottomOptions: [{ label: "P", waist: [68, 74], hip: [94, 100] }, { label: "M", waist: [74, 82], hip: [100, 108] }] },
 ];
 
 const historySeed: HistoryItem[] = [
@@ -318,6 +325,21 @@ const mergeBioimpedanceFitness = (fitness: FitnessAssessment, bio: BioimpedanceD
   ].filter(Boolean).join(" · ") || fitness.tissueDistribution,
 });
 
+const chooseBestSize = (options: BrandSizeOption[], measurements: Measurements, kind: "top" | "bottom") => {
+  const relevant = kind === "top" ? [measurements.bust_cm] : [measurements.waist_cm, measurements.hip_cm];
+  if (relevant.every((value) => !value)) return "Informe medidas";
+  const scoreOption = (option: BrandSizeOption) => {
+    const checks = kind === "top" ? [{ value: measurements.bust_cm, range: option.bust }] : [{ value: measurements.waist_cm, range: option.waist }, { value: measurements.hip_cm, range: option.hip }];
+    return checks.reduce((score, check) => {
+      if (!check.value || !check.range) return score + 12;
+      const [min, max] = check.range;
+      if (check.value >= min && check.value <= max) return score;
+      return score + Math.min(Math.abs(check.value - min), Math.abs(check.value - max));
+    }, 0);
+  };
+  return [...options].sort((a, b) => scoreOption(a) - scoreOption(b))[0]?.label ?? "Conferir tabela";
+};
+
 const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
   const measurements = analysis.measurements;
   const context = [analysis.fitProfile, ...analysis.adjustments, ...analysis.clothing.map((item) => `${item.category} ${item.size} ${item.fitTip}`)].map(textOf).join(" ").toLowerCase();
@@ -371,6 +393,11 @@ const Index = () => {
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
   const activeStep = isAnalyzing ? 3 : sidePreview ? 2 : frontPreview ? 1 : 0;
   const accountType = profile?.account_type ?? "b2c";
+  const brandFitGuide = useMemo(() => brandSizeGuide.map((row) => ({
+    ...row,
+    suggestedTop: chooseBestSize(row.topOptions, currentMeasurements, "top"),
+    suggestedBottom: chooseBestSize(row.bottomOptions, currentMeasurements, "bottom"),
+  })), [currentMeasurements]);
 
   const measurementRows = useMemo(() => {
     const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
@@ -720,7 +747,7 @@ const Index = () => {
                 <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">IMC</p><p className="font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">Tipo corporal</p><p className="font-display text-2xl font-semibold">{analysis.bodyType ?? "Triângulo"}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">% gordura</p><p className="font-display text-xl font-semibold">{fitness.bodyFatEstimate}</p></div></div><div className="overflow-hidden rounded-2xl border"><table className="w-full text-sm"><tbody>{measurementRows.map((row) => <tr key={row.key} className="border-b last:border-0"><td className="p-3 font-bold">{row.label}</td><td className="p-3"><Input inputMode="decimal" value={manual[row.key] ?? String(currentMeasurements[row.key] ?? "")} onChange={(event) => updateAnalysisMeasurement(row.key, event.target.value)} className="h-9 min-w-20" /></td><td className="p-3 text-muted-foreground">{row.status}</td></tr>)}</tbody></table></div><p className="text-sm leading-6 text-muted-foreground">Ajuste qualquer medida estimada pela IA para recalcular IMC, riscos e recomendações de tamanho com maior precisão.</p></div>
               </TabsContent>
 
-              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Tabela por marca</h3><div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[680px] text-sm"><thead className="bg-muted text-left"><tr><th className="p-3">Marca</th><th className="p-3">Blusas/Camisas</th><th className="p-3">Calças/Saias</th><th className="p-3">Observação</th></tr></thead><tbody>{brandSizeGuide.map((row) => <tr key={row.brand} className="border-t"><td className="p-3 font-bold">{row.brand}</td><td className="p-3">{row.top}</td><td className="p-3">{row.bottom}</td><td className="p-3 text-muted-foreground">{row.note}</td></tr>)}</tbody></table></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
+              <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Tabela por marca</h3><div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[760px] text-sm"><thead className="bg-muted text-left"><tr><th className="p-3">Marca</th><th className="p-3">Medida indicada</th><th className="p-3">Blusas/Camisas</th><th className="p-3">Calças/Saias</th><th className="p-3">Observação</th></tr></thead><tbody>{brandFitGuide.map((row) => <tr key={row.brand} className="border-t"><td className="p-3 font-bold">{row.brand}</td><td className="p-3"><div className="flex flex-wrap gap-2"><Badge variant="secondary">Topo {row.suggestedTop}</Badge><Badge variant="outline">Baixo {row.suggestedBottom}</Badge></div></td><td className="p-3">{row.top}</td><td className="p-3">{row.bottom}</td><td className="p-3 text-muted-foreground">{row.note}</td></tr>)}</tbody></table></div><p className="mt-3 text-sm leading-6 text-muted-foreground">A indicação usa busto para blusas e a maior compatibilidade entre cintura/quadril para partes de baixo; se ficar entre dois tamanhos, escolha pelo tecido e caimento desejado.</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
