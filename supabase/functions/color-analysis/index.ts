@@ -614,7 +614,73 @@ const normalizeAnalysis = (raw: Record<string, unknown>): Record<string, unknown
     ], 4, 4),
     final_quote: isStr(raw.final_quote) ? String(raw.final_quote) : "Cores certas iluminam seu rosto, suavizam imperfeições e destacam sua presença natural.",
     confidence: isStr(raw.confidence) ? String(raw.confidence) : "media",
+    wardrobe_intro: isStr(raw.wardrobe_intro)
+      ? String(raw.wardrobe_intro)
+      : `Peças e modelagens pensadas para a estação ${season}: cortes, tecidos e cores que conversam com seu subtom e profundidade naturais.`,
+    wardrobe: normalizeWardrobe(raw.wardrobe, defaults, season),
   };
+};
+
+const WARDROBE_FALLBACK_TEMPLATE = [
+  {
+    category: "Blusa",
+    piece: "Blusa de modelagem fluida",
+    cuts: ["Decote em V suave", "Manga 3/4 ou longa", "Caimento solto na cintura"],
+    fabrics: ["Viscose", "Seda", "Modal"],
+    occasion: "Dia a dia",
+  },
+  {
+    category: "Calça",
+    piece: "Calça alfaiataria de cintura alta",
+    cuts: ["Pernas retas", "Cós alto", "Bolsos embutidos"],
+    fabrics: ["Linho encorpado", "Lã fria", "Sarja"],
+    occasion: "Trabalho · jantar",
+  },
+  {
+    category: "Vestido",
+    piece: "Vestido midi",
+    cuts: ["Cintura marcada", "Saia evasê", "Mangas curtas ou 3/4"],
+    fabrics: ["Crepe", "Viscose", "Cetim fosco"],
+    occasion: "Eventos",
+  },
+  {
+    category: "Casaco",
+    piece: "Sobretudo estruturado",
+    cuts: ["Comprimento médio", "Ombros marcados", "Cinto opcional"],
+    fabrics: ["Lã batida", "Gabardine"],
+    occasion: "Inverno · meia-estação",
+  },
+  {
+    category: "Acessório",
+    piece: "Lenço estampado próximo ao rosto",
+    cuts: ["Estampas orgânicas", "Drapeado leve"],
+    fabrics: ["Seda", "Modal"],
+    occasion: "Versátil",
+  },
+];
+
+const normalizeWardrobe = (raw: unknown, defaults: typeof SEASON_DEFAULTS[string], season: string) => {
+  const palette = defaults.best;
+  const arr = Array.isArray(raw) ? raw : [];
+  const out: Array<Record<string, unknown>> = [];
+
+  for (let i = 0; i < WARDROBE_FALLBACK_TEMPLATE.length; i++) {
+    const tpl = WARDROBE_FALLBACK_TEMPLATE[i];
+    const item = (arr[i] && typeof arr[i] === "object") ? arr[i] as Record<string, unknown> : {};
+    const fallbackColors = palette.slice(i, i + 3).concat(palette).slice(0, 3);
+    out.push({
+      category: isStr(item.category) ? String(item.category) : tpl.category,
+      piece: isStr(item.piece) ? String(item.piece) : tpl.piece,
+      cuts: sanitizeStrings(item.cuts, tpl.cuts, 2, 4),
+      fabrics: sanitizeStrings(item.fabrics, tpl.fabrics ?? [], 0, 4),
+      colors: sanitizeChips(item.colors, fallbackColors, 3, 3),
+      why: isStr(item.why)
+        ? String(item.why)
+        : `Cores e modelagens dentro da paleta ${season} valorizam o rosto, equilibram o contraste natural e mantêm a harmonia cromática da estação.`,
+      occasion: isStr(item.occasion) ? String(item.occasion) : tpl.occasion,
+    });
+  }
+  return out;
 };
 
 serve(async (req) => {
