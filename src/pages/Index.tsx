@@ -58,7 +58,20 @@ type FitnessAssessment = {
   bmiClass?: string;
   waistRisk?: string;
   bodyFatEstimate?: string;
+  muscleMassEstimate?: string;
+  abdominalFatEstimate?: string;
+  tissueDistribution?: string;
+  bmr?: number;
   summary?: string;
+};
+
+type BioimpedanceData = {
+  bodyFatPct?: number;
+  muscleMassKg?: number;
+  visceralFat?: number;
+  waterPct?: number;
+  bmr?: number;
+  source?: string;
 };
 
 type Analysis = {
@@ -120,10 +133,20 @@ const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: str
   { key: "height_cm", label: "Altura (cm)", placeholder: "170" },
   { key: "estimated_weight_kg", label: "Peso (kg)", placeholder: "68" },
   { key: "bust_cm", label: "Busto/Tórax (cm)", placeholder: "92" },
+  { key: "underbust_cm", label: "Abaixo do busto (cm)", placeholder: "76" },
   { key: "waist_cm", label: "Cintura (cm)", placeholder: "74" },
   { key: "hip_cm", label: "Quadril (cm)", placeholder: "99" },
+  { key: "thigh_cm", label: "Coxa (cm)", placeholder: "58" },
   { key: "inseam_cm", label: "Comprimento da perna (cm)", placeholder: "76" },
   { key: "arm_length_cm", label: "Comprimento do braço (cm)", placeholder: "58" },
+];
+
+const bioimpedanceFields: Array<{ key: keyof BioimpedanceData; label: string; placeholder: string }> = [
+  { key: "bodyFatPct", label: "Gordura corporal (%)", placeholder: "28" },
+  { key: "muscleMassKg", label: "Massa muscular (kg)", placeholder: "42" },
+  { key: "visceralFat", label: "Gordura visceral", placeholder: "8" },
+  { key: "waterPct", label: "Água corporal (%)", placeholder: "52" },
+  { key: "bmr", label: "TMB do exame", placeholder: "1450" },
 ];
 
 const defaultStyles: StyleTip[] = [
@@ -243,6 +266,10 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
         bmiClass: data.body_analysis?.bmi_category,
         waistRisk: `Risco abdominal: ${data.body_analysis?.abdominal_risk ?? "em avaliação"}. Relação cintura/quadril: ${data.body_analysis?.waist_to_hip_ratio ?? "—"}`,
         bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct ? `${data.body_analysis.body_fat_estimate_pct}%` : "Estimativa visual conservadora",
+        muscleMassEstimate: data.body_analysis?.muscle_mass_kg ? `${data.body_analysis.muscle_mass_kg}kg` : undefined,
+        abdominalFatEstimate: data.body_analysis?.visceral_fat ? `Gordura visceral ${data.body_analysis.visceral_fat}` : undefined,
+        tissueDistribution: data.body_analysis?.tissue_distribution,
+        bmr: data.body_analysis?.basal_metabolic_rate_kcal,
         summary: data.body_analysis?.body_fat_disclaimer,
       },
       clothing: [
@@ -267,9 +294,29 @@ const calculateFallbackFitness = (measurements: Measurements): FitnessAssessment
   const weight = measurements.estimated_weight_kg;
   const bmi = heightM && weight ? Number((weight / (heightM * heightM)).toFixed(1)) : undefined;
   const bmiClass = !bmi ? "Dados insuficientes" : bmi < 18.5 ? "Abaixo do peso" : bmi < 25 ? "Normal" : bmi < 30 ? "Sobrepeso" : "Obeso";
-  const waistRisk = measurements.waist_cm && measurements.waist_cm >= 88 ? "Atenção: cintura elevada" : "Dentro de uma faixa usual";
-  return { bmi, bmiClass, waistRisk, bodyFatEstimate: "Estimativa visual conservadora", summary: "Segundo os dados informados, seu peso está dentro de uma faixa que deve ser avaliada junto ao contexto individual." };
+  const waist = measurements.waist_cm;
+  const hip = measurements.hip_cm;
+  const waistHip = waist && hip ? Number((waist / hip).toFixed(2)) : undefined;
+  const bodyFatPct = bmi ? Math.max(12, Math.min(48, Math.round(bmi * 1.18 + (waistHip ? waistHip * 18 : 5)))) : undefined;
+  const muscleMass = weight && bodyFatPct ? Number((weight * (1 - bodyFatPct / 100) * 0.72).toFixed(1)) : undefined;
+  const bmr = weight && measurements.height_cm ? Math.round(10 * weight + 6.25 * measurements.height_cm - 5 * 35 + 5) : undefined;
+  const waistRisk = waist && waist >= 88 ? "Atenção: cintura elevada" : "Dentro de uma faixa usual";
+  return { bmi, bmiClass, waistRisk, bodyFatEstimate: bodyFatPct ? `${bodyFatPct}% estimado` : "Estimativa visual conservadora", muscleMassEstimate: muscleMass ? `${muscleMass}kg estimados` : "Informe bioimpedância para refinar", abdominalFatEstimate: waistHip ? `RCQ ${waistHip} com distribuição ${waistHip >= 0.85 ? "central" : "periférica/equilibrada"}` : "Depende de cintura e quadril", tissueDistribution: "Estimativa por peso, cintura, quadril e proporções visuais; use bioimpedância para acompanhar evolução clínica.", bmr, summary: "Avaliação estimativa para apoio a médicos e nutricionistas, sem substituir consulta, exame físico ou laudo clínico." };
 };
+
+const mergeBioimpedanceFitness = (fitness: FitnessAssessment, bio: BioimpedanceData): FitnessAssessment => ({
+  ...fitness,
+  bodyFatEstimate: bio.bodyFatPct ? `${bio.bodyFatPct}% informado por bioimpedância` : fitness.bodyFatEstimate,
+  muscleMassEstimate: bio.muscleMassKg ? `${bio.muscleMassKg}kg informados` : fitness.muscleMassEstimate,
+  abdominalFatEstimate: bio.visceralFat ? `Gordura visceral ${bio.visceralFat}` : fitness.abdominalFatEstimate,
+  bmr: bio.bmr ?? fitness.bmr,
+  tissueDistribution: [
+    bio.bodyFatPct ? `Gordura corporal ${bio.bodyFatPct}%` : undefined,
+    bio.muscleMassKg ? `massa muscular ${bio.muscleMassKg}kg` : undefined,
+    bio.waterPct ? `água corporal ${bio.waterPct}%` : undefined,
+    bio.source,
+  ].filter(Boolean).join(" · ") || fitness.tissueDistribution,
+});
 
 const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
   const measurements = analysis.measurements;
@@ -302,13 +349,23 @@ const Index = () => {
   const [objective, setObjective] = useState("Ambos");
   const [productUrl, setProductUrl] = useState("");
   const [notes, setNotes] = useState("Comprar roupas online com menos troca");
+  const [bioimpedance, setBioimpedance] = useState<Record<string, string>>({});
+  const [bioFileName, setBioFileName] = useState("");
   const [consent, setConsent] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [history, setHistory] = useState(historySeed);
 
   const currentMeasurements = analysis?.measurements ?? {};
-  const fitness = analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements);
+  const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
+    bodyFatPct: parseNumber(bioimpedance.bodyFatPct ?? ""),
+    muscleMassKg: parseNumber(bioimpedance.muscleMassKg ?? ""),
+    visceralFat: parseNumber(bioimpedance.visceralFat ?? ""),
+    waterPct: parseNumber(bioimpedance.waterPct ?? ""),
+    bmr: parseNumber(bioimpedance.bmr ?? ""),
+    source: bioFileName ? `Arquivo temporário: ${bioFileName}` : undefined,
+  }), [bioFileName, bioimpedance]);
+  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements), bioimpedanceData);
   const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
@@ -381,6 +438,23 @@ const Index = () => {
       return acc;
     }, {});
 
+  const updateAnalysisMeasurement = (key: MeasurementKey, value: string) => {
+    setManual((prev) => ({ ...prev, [key]: value }));
+    const numeric = parseNumber(value);
+    if (!analysis || !numeric) return;
+    const measurements = { ...analysis.measurements, [key]: numeric };
+    const recalculatedFitness = mergeBioimpedanceFitness(calculateFallbackFitness(measurements), bioimpedanceData);
+    setAnalysis({ ...analysis, measurements, fitnessAssessment: recalculatedFitness });
+  };
+
+  const onBioFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Envie um exame de até 5MB.");
+    setBioFileName(file.name);
+    toast.success("Exame anexado temporariamente; digite os valores principais para refinar a análise.");
+  };
+
   const saveHistory = async (result: Analysis) => {
     const item = {
       id: String(Date.now()),
@@ -407,7 +481,7 @@ const Index = () => {
       measurements: result.measurements,
       size_recommendations: result.sizeRecommendations ?? {},
       style_recommendations: result.styleRecommendations ?? [],
-      fitness_assessment: result.fitnessAssessment ?? {},
+      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData },
       notes,
     });
   };
@@ -434,6 +508,7 @@ const Index = () => {
         shoppingGoal: objective,
         productUrl: productUrl.trim() || undefined,
         manualMeasurements: measurements,
+        bioimpedance: bioimpedanceData,
       },
     });
 
@@ -442,6 +517,8 @@ const Index = () => {
     if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
 
     const result = normalizeAnalysis(data);
+    result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements), bioimpedanceData);
+    setManual((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.measurements).map(([key, value]) => [key, String(value)])) }));
     setAnalysis(result);
     setMode("results");
     await saveHistory(result);
@@ -614,6 +691,14 @@ const Index = () => {
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
+              <div className="space-y-3 rounded-2xl border bg-card/70 p-4">
+                <div><h3 className="font-display text-xl font-semibold">Bioimpedância opcional</h3><p className="text-sm leading-6 text-muted-foreground">Digite dados do exame ou anexe temporariamente para acompanhamento com médico/nutricionista.</p></div>
+                <div className="grid grid-cols-2 gap-3">
+                  {bioimpedanceFields.map((field) => <div key={field.key} className="space-y-2"><Label htmlFor={`bio-${field.key}`}>{field.label}</Label><Input id={`bio-${field.key}`} inputMode="decimal" value={bioimpedance[field.key] ?? ""} onChange={(event) => setBioimpedance((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} /></div>)}
+                </div>
+                <Label htmlFor="bio-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> {bioFileName || "Upload do exame"}</Label>
+                <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
+              </div>
               {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
               <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
             </div>
@@ -632,14 +717,14 @@ const Index = () => {
 
               <TabsContent value="dashboard" className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
                 <div className="relative min-h-[420px] rounded-2xl border bg-panel-glow p-6 shadow-panel"><div className="absolute left-1/2 top-12 size-20 -translate-x-1/2 rounded-full border-2 border-primary/40" /><div className="absolute left-1/2 top-32 h-64 w-32 -translate-x-1/2 rounded-full border-2 border-accent/60" /><span className="absolute left-8 top-32 rounded-full bg-card px-3 py-1 text-sm font-bold">Busto {formatMeasure("bust_cm", currentMeasurements.bust_cm)}</span><span className="absolute right-8 top-52 rounded-full bg-card px-3 py-1 text-sm font-bold">Cintura {formatMeasure("waist_cm", currentMeasurements.waist_cm)}</span><span className="absolute left-8 bottom-24 rounded-full bg-card px-3 py-1 text-sm font-bold">Quadril {formatMeasure("hip_cm", currentMeasurements.hip_cm)}</span></div>
-                <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">IMC</p><p className="font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">Tipo corporal</p><p className="font-display text-2xl font-semibold">{analysis.bodyType ?? "Triângulo"}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">% gordura</p><p className="font-display text-xl font-semibold">{fitness.bodyFatEstimate}</p></div></div><div className="overflow-hidden rounded-2xl border"><table className="w-full text-sm"><tbody>{measurementRows.map((row) => <tr key={row.key} className="border-b last:border-0"><td className="p-3 font-bold">{row.label}</td><td className="p-3">{row.value}</td><td className="p-3 text-muted-foreground">{row.status}</td></tr>)}</tbody></table></div></div>
+                <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">IMC</p><p className="font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">Tipo corporal</p><p className="font-display text-2xl font-semibold">{analysis.bodyType ?? "Triângulo"}</p></div><div className="rounded-2xl bg-muted p-4"><p className="text-sm text-muted-foreground">% gordura</p><p className="font-display text-xl font-semibold">{fitness.bodyFatEstimate}</p></div></div><div className="overflow-hidden rounded-2xl border"><table className="w-full text-sm"><tbody>{measurementRows.map((row) => <tr key={row.key} className="border-b last:border-0"><td className="p-3 font-bold">{row.label}</td><td className="p-3"><Input inputMode="decimal" value={manual[row.key] ?? String(currentMeasurements[row.key] ?? "")} onChange={(event) => updateAnalysisMeasurement(row.key, event.target.value)} className="h-9 min-w-20" /></td><td className="p-3 text-muted-foreground">{row.status}</td></tr>)}</tbody></table></div><p className="text-sm leading-6 text-muted-foreground">Ajuste qualquer medida estimada pela IA para recalcular IMC, riscos e recomendações de tamanho com maior precisão.</p></div>
               </TabsContent>
 
               <TabsContent value="sizes" className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><Shirt className="size-5 text-primary" /> Tamanhos sugeridos</h3><div className="grid gap-3">{Object.entries(sizes).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-2xl bg-muted p-4"><span className="font-bold">{label}</span><span className="text-right font-display text-xl font-semibold">{textOf(value)}</span></div>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 font-display text-2xl font-semibold">Ajustes de alfaiataria</h3><div className="space-y-3">{analysis.adjustments.map((item, index) => <p key={`${textOf(item)}-${index}`} className="flex gap-2 rounded-2xl bg-muted p-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />{textOf(item)}</p>)}</div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Tabela por marca</h3><div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[680px] text-sm"><thead className="bg-muted text-left"><tr><th className="p-3">Marca</th><th className="p-3">Blusas/Camisas</th><th className="p-3">Calças/Saias</th><th className="p-3">Observação</th></tr></thead><tbody>{brandSizeGuide.map((row) => <tr key={row.brand} className="border-t"><td className="p-3 font-bold">{row.brand}</td><td className="p-3">{row.top}</td><td className="p-3">{row.bottom}</td><td className="p-3 text-muted-foreground">{row.note}</td></tr>)}</tbody></table></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel lg:col-span-2"><h3 className="mb-4 font-display text-2xl font-semibold">Risco de compra por região</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{purchaseRisks.map((item) => <article key={item.region} className="rounded-2xl bg-muted p-4"><div className="mb-3 flex items-center justify-between gap-2"><span className="font-bold">{item.region}</span><Badge variant={item.risk === "Alto" ? "destructive" : item.risk === "Médio" ? "secondary" : "outline"}>{item.risk}</Badge></div><Progress value={item.score} className="h-2" /><p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p></article>)}</div></div></TabsContent>
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
-              <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><HeartPulse className="mb-4 size-8 text-primary" /><p className="text-sm text-muted-foreground">IMC visual</p><div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div><p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><Activity className="mb-4 size-8 text-accent" /><h3 className="font-display text-2xl font-semibold">Risco abdominal</h3><p className="mt-3 leading-7 text-muted-foreground">{fitness.waistRisk}</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><FileText className="mb-4 size-8 text-primary" /><h3 className="font-display text-2xl font-semibold">Resumo</h3><p className="mt-3 leading-7 text-muted-foreground">{fitness.summary}</p><p className="mt-4 rounded-2xl bg-muted p-3 text-sm">Esta é uma estimativa. Consulte um profissional de saúde.</p><Button type="button" variant="outline" className="mt-4 w-full">Compartilhe com seu nutricionista</Button></div></TabsContent>
+              <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><HeartPulse className="mb-4 size-8 text-primary" /><p className="text-sm text-muted-foreground">IMC e TMB</p><div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div><p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p><p className="mt-2 text-sm text-muted-foreground">TMB: {fitness.bmr ? `${fitness.bmr} kcal/dia` : "—"}</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><Activity className="mb-4 size-8 text-accent" /><h3 className="font-display text-2xl font-semibold">Tecidos corporais</h3><div className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground"><p>Gordura: {fitness.bodyFatEstimate}</p><p>Massa muscular: {fitness.muscleMassEstimate ?? "—"}</p><p>Abdominal: {fitness.abdominalFatEstimate ?? fitness.waistRisk}</p></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><FileText className="mb-4 size-8 text-primary" /><h3 className="font-display text-2xl font-semibold">Resumo clínico</h3><p className="mt-3 leading-7 text-muted-foreground">{fitness.tissueDistribution ?? fitness.summary}</p><p className="mt-4 rounded-2xl bg-muted p-3 text-sm">Avaliação estimativa para apoio médico/nutricional; não substitui consulta, exame físico ou laudo.</p><Button type="button" variant="outline" className="mt-4 w-full">Compartilhe com seu nutricionista</Button></div></TabsContent>
 
               <TabsContent value="history" className="grid gap-4 lg:grid-cols-[1fr_0.8fr]"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><History className="size-5 text-primary" /> Evolução corporal</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={history}><XAxis dataKey="date" /><YAxis /><Tooltip /><Line type="monotone" dataKey="waist" stroke="hsl(var(--primary))" strokeWidth={3} /><Line type="monotone" dataKey="hip" stroke="hsl(var(--accent))" strokeWidth={3} /></LineChart></ResponsiveContainer></div></div><div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="font-display text-2xl font-semibold">Perfil e monetização</h3>{["Free: 1 análise/mês", "Premium R$19,90/mês: ilimitado + PDF + marcas", "B2B API key: página placeholder"].map((item) => <p key={item} className="flex gap-2 rounded-2xl bg-muted p-3"><KeyRound className="mt-0.5 size-4 shrink-0 text-primary" />{item}</p>)}<p className="flex gap-2 rounded-2xl bg-muted p-3"><Lock className="mt-0.5 size-4 shrink-0 text-primary" />Histórico salvo para usuários autenticados.</p></div></TabsContent>
             </Tabs>
