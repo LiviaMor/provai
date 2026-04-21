@@ -111,4 +111,73 @@ export const exampleAnalysis: ColorAnalysis = {
   ],
   final_quote: "Cores certas iluminam seu rosto, suavizam imperfeições e destacam sua presença natural.",
   confidence: "alta",
+  wardrobe_intro:
+    "Peças escolhidas para honrar a profundidade e o calor da sua estação — modelagens fluidas, tecidos com textura natural e paleta terrosa que aquecem o rosto.",
+  wardrobe: [
+    {
+      category: "Blusa",
+      piece: "Blusa de tricô gola alta",
+      cuts: ["Modelagem reta", "Decote alto", "Mangas longas justas"],
+      fabrics: ["Lã merino", "Cashmere", "Tricô de algodão encorpado"],
+      colors: [
+        { name: "Verde Musgo", hex: "#556B2F" },
+        { name: "Mostarda Queimada", hex: "#C68A1E" },
+        { name: "Chocolate", hex: "#3B2415" },
+      ],
+      why: "O verde musgo e o chocolate harmonizam com seu subtom dourado/oliva, criando profundidade junto ao rosto sem competir com o tom da pele. A mostarda traz luz quente e ilumina o olhar.",
+      occasion: "Dia a dia · trabalho",
+    },
+    {
+      category: "Calça",
+      piece: "Calça alfaiataria de cintura alta",
+      cuts: ["Pernas retas", "Cós alto", "Caimento fluido"],
+      fabrics: ["Linho encorpado", "Lã fria", "Sarja pesada"],
+      colors: [
+        { name: "Camel", hex: "#A0744A" },
+        { name: "Marrom Café", hex: "#523226" },
+        { name: "Oliva Escuro", hex: "#4A4E2A" },
+      ],
+      why: "Tons terrosos profundos como camel e café equilibram a profundidade alta da estação e funcionam como base neutra quente, evitando o contraste duro do preto.",
+      occasion: "Looks de trabalho e jantares",
+    },
+    {
+      category: "Vestido",
+      piece: "Vestido midi de manga longa",
+      cuts: ["Cintura marcada", "Saia evasê", "Decote V suave"],
+      fabrics: ["Crepe", "Veludo cotelê fino", "Viscose encorpada"],
+      colors: [
+        { name: "Bordô", hex: "#5A1F22" },
+        { name: "Verde Petróleo", hex: "#1F4E47" },
+        { name: "Terracota", hex: "#B5532A" },
+      ],
+      why: "Bordô e verde petróleo carregam a profundidade quente que valoriza seus olhos castanhos. A terracota aquece e destaca o rubor natural da pele.",
+      occasion: "Eventos e ocasiões especiais",
+    },
+    {
+      category: "Casaco",
+      piece: "Trench coat ou sobretudo de lã",
+      cuts: ["Comprimento médio", "Cinto na cintura", "Ombros estruturados"],
+      fabrics: ["Lã batida", "Gabardine", "Camelhair"],
+      colors: [
+        { name: "Camel", hex: "#A0744A" },
+        { name: "Café Escuro", hex: "#4A2E22" },
+        { name: "Oliva Escuro", hex: "#4A4E2A" },
+      ],
+      why: "Camel é o casaco-clássico do Outono Profundo: emoldura o rosto com calor dourado e funciona como neutro absoluto da sua paleta.",
+      occasion: "Inverno e meia-estação",
+    },
+    {
+      category: "Acessório",
+      piece: "Lenço de seda estampado",
+      cuts: ["Estampas orgânicas", "Florais escuros", "Animal print quente"],
+      fabrics: ["Seda", "Lã leve", "Modal"],
+      colors: [
+        { name: "Cobre", hex: "#B36A3A" },
+        { name: "Mostarda", hex: "#C68A1E" },
+        { name: "Bordô Quente", hex: "#6E2A2C" },
+      ],
+      why: "Acessórios próximos ao rosto em cobre e mostarda funcionam como iluminadores naturais — refletem luz quente sobre a pele e destacam o brilho dos olhos.",
+      occasion: "Versátil · todas as estações",
+    },
+  ],
 };

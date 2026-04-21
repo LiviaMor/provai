@@ -27,6 +27,18 @@ export type ColorAnalysis = {
   golden_tips: string[];
   final_quote?: string;
   confidence?: string;
+  wardrobe?: WardrobePiece[];
+  wardrobe_intro?: string;
+};
+
+export type WardrobePiece = {
+  category: string; // ex: "Blusa", "Calça", "Vestido", "Casaco", "Acessório"
+  piece: string; // ex: "Blusa de tricô gola alta"
+  cuts: string[]; // cortes/modelagens recomendadas
+  fabrics?: string[]; // tecidos sugeridos
+  colors: ColorChip[]; // cores recomendadas (com hex)
+  why: string; // explicação técnica do porquê funciona
+  occasion?: string; // ocasião sugerida
 };
 
 export type ColorSession = {

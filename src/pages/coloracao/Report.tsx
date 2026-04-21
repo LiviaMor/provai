@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Download, Image as ImageIcon, Share2, ArrowLeft, Check, X, Droplet, Thermometer, Eye, Sun, Sparkles, Flower2, Contrast, Layers, FileText, Instagram, Square, Loader2 } from "lucide-react";
+import { Download, Image as ImageIcon, Share2, ArrowLeft, Check, X, Droplet, Thermometer, Eye, Sun, Sparkles, Flower2, Contrast, Layers, FileText, Instagram, Square, Loader2, Shirt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ColorAnalysis, ColorChip } from "@/types/colorAnalysis";
@@ -500,6 +500,80 @@ export default function Report({ demo = false }: { demo?: boolean }) {
               </ul>
             </div>
           </section>
+
+          {/* Guarda-Roupa Ideal */}
+          {analysis.wardrobe && analysis.wardrobe.length > 0 && (
+            <section className="px-6 sm:px-10 py-12 border-t border-border bg-secondary/10">
+              <div className="text-center max-w-2xl mx-auto">
+                <p className="uppercase tracking-[0.3em] text-[11px] text-muted-foreground">Guarda-Roupa Ideal</p>
+                <h3 className="mt-2 font-display text-2xl sm:text-3xl">Peças que conversam com sua cartela</h3>
+                {analysis.wardrobe_intro && (
+                  <p className="mt-3 text-sm text-muted-foreground italic">{analysis.wardrobe_intro}</p>
+                )}
+              </div>
+
+              <div className="mt-8 grid md:grid-cols-2 gap-5">
+                {analysis.wardrobe.map((item, i) => (
+                  <div key={i} className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4">
+                    <div className="flex items-start gap-3">
+                      <span className="h-10 w-10 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
+                        <Shirt className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{item.category}</p>
+                        <p className="font-display text-lg leading-tight">{item.piece}</p>
+                        {item.occasion && (
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{item.occasion}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Cores recomendadas */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Cores ideais</p>
+                      <div className="flex gap-3">
+                        {item.colors.map((c, idx) => (
+                          <div key={idx} className="flex flex-col items-center gap-1.5 min-w-0">
+                            <span
+                              className="h-12 w-12 rounded-xl border border-border shadow-sm shrink-0"
+                              style={{ background: c.hex }}
+                            />
+                            <span className="text-[10px] leading-tight text-center max-w-[80px] truncate">{c.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Cortes */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Cortes & modelagem</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.cuts.map((cut, idx) => (
+                          <span key={idx} className="rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-[11px]">{cut}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tecidos */}
+                    {item.fabrics && item.fabrics.length > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Tecidos sugeridos</p>
+                        <p className="text-xs text-muted-foreground">{item.fabrics.join(" · ")}</p>
+                      </div>
+                    )}
+
+                    {/* Por que funciona */}
+                    <div className="rounded-xl bg-secondary/30 p-3 border border-border/60">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1 flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3" /> Por que funciona
+                      </p>
+                      <p className="text-xs leading-relaxed">{item.why}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Closing */}
           <section className="px-6 sm:px-10 py-12 text-center border-t border-border">
