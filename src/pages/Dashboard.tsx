@@ -824,7 +824,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.others.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} measurements={latestMeasurements} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
