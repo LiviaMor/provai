@@ -217,8 +217,8 @@ export function suggestSize(
     if (m.inseam_cm) {
       const expected = 76 + (((m.height_cm ?? HEIGHT_REF_BOTTOM) - HEIGHT_REF_BOTTOM) * 0.45);
       const baseAdjust = expected - m.inseam_cm;
-      hemAdjust = +(baseAdjust + HEM_OFFSET_BOTTOM[hemPref]).toFixed(1);
-      const prefLabel = HEM_PREFERENCE_LABELS[hemPref].toLowerCase();
+      hemAdjust = +(baseAdjust + HEM_OFFSET_BOTTOM[effectivePref]).toFixed(1);
+      const prefLabel = HEM_PREFERENCE_LABELS[effectivePref].toLowerCase();
       if (Math.abs(hemAdjust) >= 1) {
         fitNotes.push(hemAdjust > 0 ? `Barra (${prefLabel}): encurtar ${hemAdjust}cm` : `Barra (${prefLabel}): alongar ${Math.abs(hemAdjust)}cm`);
       } else {
