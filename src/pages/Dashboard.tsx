@@ -4,8 +4,9 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Sparkles, History, Palette, Heart, TrendingUp,
   Plus, Trash2, ExternalLink, Store, ShoppingBag, Calendar, Loader2,
-  Camera, ArrowRight,
+  Camera, ArrowRight, Search, Filter, Check,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -562,112 +563,316 @@ function StoresTab({
   onDeleteProduct: (id: string) => Promise<void>;
 }) {
   void userId;
+
+  // ---------- Filtros & busca ----------
+  const [query, setQuery] = useState("");
+  const [seasonFilter, setSeasonFilter] = useState<string>("compat"); // compat | all | <season>
+  const [sortBy, setSortBy] = useState<string>("compat"); // compat | recent | price-asc | price-desc
+
+  // Conjunto de estações disponíveis (vindas das lojas + produtos)
+  const availableSeasons = useMemo(() => {
+    const set = new Set<string>();
+    stores.forEach((s) => s.seasons?.forEach((x) => x && set.add(x)));
+    products.forEach((p) => p.season && set.add(p.season));
+    if (dominantSeason) set.add(dominantSeason);
+    return Array.from(set).sort();
+  }, [stores, products, dominantSeason]);
+
+  // Tokens normalizados da estação dominante (ex: "Outono Profundo" -> ["outono","profundo"])
+  const dominantTokens = useMemo(
+    () => (dominantSeason ?? "").toLowerCase().split(/\s+/).filter(Boolean),
+    [dominantSeason],
+  );
+
+  const matchesDominant = (raw: string | null | undefined) => {
+    if (!dominantTokens.length || !raw) return false;
+    const v = raw.toLowerCase();
+    // compatível se compartilhar pelo menos a "família" da estação (ex.: outono)
+    return dominantTokens.some((t) => v.includes(t));
+  };
+
+  const matchesSeason = (raw: string | null | undefined, target: string) => {
+    if (!raw) return false;
+    return raw.toLowerCase().includes(target.toLowerCase());
+  };
+
+  // ---------- LOJAS filtradas ----------
+  const filteredStores = useMemo(() => {
+    let list = stores.filter((s) => {
+      const q = query.trim().toLowerCase();
+      if (q && !`${s.name} ${(s.tags ?? []).join(" ")} ${(s.seasons ?? []).join(" ")}`.toLowerCase().includes(q)) return false;
+      if (seasonFilter === "all") return true;
+      if (seasonFilter === "compat") return (s.seasons ?? []).some((x) => matchesDominant(x));
+      return (s.seasons ?? []).some((x) => matchesSeason(x, seasonFilter));
+    });
+    if (sortBy === "compat") {
+      list = [...list].sort((a, b) => {
+        const ac = (a.seasons ?? []).some((x) => matchesDominant(x)) ? 1 : 0;
+        const bc = (b.seasons ?? []).some((x) => matchesDominant(x)) ? 1 : 0;
+        return bc - ac;
+      });
+    } else if (sortBy === "recent") {
+      list = [...list].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    }
+    return list;
+  }, [stores, query, seasonFilter, sortBy, dominantTokens]);
+
+  // ---------- PRODUTOS filtrados + agrupados ----------
+  const filteredProducts = useMemo(() => {
+    let list = products.filter((p) => {
+      const q = query.trim().toLowerCase();
+      if (q && !`${p.name} ${p.season ?? ""} ${p.notes ?? ""}`.toLowerCase().includes(q)) return false;
+      if (seasonFilter === "all") return true;
+      if (seasonFilter === "compat") return matchesDominant(p.season);
+      return matchesSeason(p.season, seasonFilter);
+    });
+    if (sortBy === "price-asc") list = [...list].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    else if (sortBy === "price-desc") list = [...list].sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity));
+    else if (sortBy === "recent") list = [...list].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    else if (sortBy === "compat") {
+      list = [...list].sort((a, b) => {
+        const ac = matchesDominant(a.season) ? 1 : 0;
+        const bc = matchesDominant(b.season) ? 1 : 0;
+        return bc - ac;
+      });
+    }
+    return list;
+  }, [products, query, seasonFilter, sortBy, dominantTokens]);
+
+  // Agrupa por estação compatível vs. outras
+  const groupedProducts = useMemo(() => {
+    const compat: FavoriteProduct[] = [];
+    const others: FavoriteProduct[] = [];
+    filteredProducts.forEach((p) => (matchesDominant(p.season) ? compat.push(p) : others.push(p)));
+    return { compat, others };
+  }, [filteredProducts, dominantTokens]);
+
+  const compatStoresCount = stores.filter((s) => (s.seasons ?? []).some((x) => matchesDominant(x))).length;
+  const compatProductsCount = products.filter((p) => matchesDominant(p.season)).length;
+
   return (
-    <div className="grid lg:grid-cols-[1fr_1.2fr] gap-6">
-      {/* Lojas */}
-      <section>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Store className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-display text-lg">Lojas favoritas</h2>
+    <div className="space-y-6">
+      {/* ---------- BARRA DE FILTROS ---------- */}
+      <Card className="bg-card/60 border-border shadow-panel">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar loja, peça ou tag..."
+                className="pl-9"
+              />
+            </div>
+            <Select value={seasonFilter} onValueChange={setSeasonFilter}>
+              <SelectTrigger className="w-[200px]">
+                <Filter className="h-3.5 w-3.5 mr-1" />
+                <SelectValue placeholder="Estação" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                <SelectItem value="compat">
+                  ✨ Compatível {dominantSeason ? `(${dominantSeason})` : ""}
+                </SelectItem>
+                <SelectItem value="all">Todas as estações</SelectItem>
+                {availableSeasons.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                <SelectItem value="compat">Compatibilidade</SelectItem>
+                <SelectItem value="recent">Mais recentes</SelectItem>
+                <SelectItem value="price-asc">Menor preço</SelectItem>
+                <SelectItem value="price-desc">Maior preço</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <AddStoreDialog onAdd={onAddStore} dominantSeason={dominantSeason} />
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {stores.length === 0 && (
-            <Card className="bg-card/40 border-dashed border-border">
-              <CardContent className="p-5 text-center">
-                <p className="text-sm text-muted-foreground">Comece salvando lojas onde você ama comprar.</p>
-              </CardContent>
-            </Card>
+          {dominantSeason && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span>
+                Sua estação atual: <span className="font-medium text-foreground">{dominantSeason}</span>
+              </span>
+              <Badge variant="outline" className="text-[10px]">{compatStoresCount} lojas compatíveis</Badge>
+              <Badge variant="outline" className="text-[10px]">{compatProductsCount} peças para comprar agora</Badge>
+            </div>
           )}
-          {stores.map((s) => (
-            <Card key={s.id} className="bg-card/80 border-border shadow-panel hover:shadow-lift transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-display text-base truncate">{s.name}</p>
-                    {s.url && (
-                      <a href={s.url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline inline-flex items-center gap-1 mt-0.5">
-                        Visitar <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                    {s.notes && <p className="text-sm text-muted-foreground mt-2">{s.notes}</p>}
-                    {(s.seasons?.length || s.tags?.length) ? (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {s.seasons?.map((x) => <Badge key={x} className="text-[10px] bg-accent/20 text-accent-foreground border-accent/40">{x}</Badge>)}
-                        {s.tags?.map((x) => <Badge key={x} variant="outline" className="text-[10px]">{x}</Badge>)}
-                      </div>
-                    ) : null}
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onDeleteStore(s.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      {/* Wishlist */}
-      <section>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-display text-lg">Wishlist</h2>
+      <div className="grid lg:grid-cols-[1fr_1.2fr] gap-6">
+        {/* Lojas */}
+        <section>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-display text-lg">Lojas favoritas</h2>
+              <Badge variant="outline" className="text-[10px]">{filteredStores.length}</Badge>
+            </div>
+            <AddStoreDialog onAdd={onAddStore} dominantSeason={dominantSeason} />
           </div>
-          <AddProductDialog stores={stores} onAdd={onAddProduct} dominantSeason={dominantSeason} />
-        </div>
 
-        <div className="mt-4 grid sm:grid-cols-2 gap-3">
-          {products.length === 0 && (
-            <Card className="bg-card/40 border-dashed border-border sm:col-span-2">
-              <CardContent className="p-5 text-center">
-                <p className="text-sm text-muted-foreground">Salve peças que combinam com sua estação.</p>
-              </CardContent>
-            </Card>
-          )}
-          {products.map((p) => {
-            const store = stores.find((s) => s.id === p.store_id);
-            return (
-              <Card key={p.id} className="bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden">
-                {p.image_url ? (
-                  <div className="aspect-[4/5] bg-muted overflow-hidden">
-                    <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="aspect-[4/5] bg-gradient-to-br from-secondary to-muted grid place-items-center">
-                    <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-display text-sm truncate">{p.name}</p>
-                      {store && <p className="text-[10px] text-muted-foreground truncate">{store.name}</p>}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onDeleteProduct(p.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    {p.price && <span className="text-xs font-medium">R$ {p.price.toFixed(2)}</span>}
-                    {p.season && <Badge className="text-[9px] bg-accent/20 text-accent-foreground border-accent/40">{p.season}</Badge>}
-                  </div>
-                  {p.url && (
-                    <a href={p.url} target="_blank" rel="noreferrer" className="mt-2 text-[11px] text-accent inline-flex items-center gap-1 hover:underline">
-                      Ver produto <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+          <div className="mt-4 space-y-3">
+            {filteredStores.length === 0 && (
+              <Card className="bg-card/40 border-dashed border-border">
+                <CardContent className="p-5 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    {stores.length === 0 ? "Comece salvando lojas onde você ama comprar." : "Nenhuma loja com esse filtro."}
+                  </p>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      </section>
+            )}
+            {filteredStores.map((s) => {
+              const isCompat = (s.seasons ?? []).some((x) => matchesDominant(x));
+              return (
+                <Card key={s.id} className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all ${isCompat ? "ring-1 ring-accent/40" : ""}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-display text-base truncate">{s.name}</p>
+                          {isCompat && (
+                            <Badge className="text-[9px] bg-accent text-accent-foreground border-accent gap-1">
+                              <Check className="h-2.5 w-2.5" /> compatível
+                            </Badge>
+                          )}
+                        </div>
+                        {s.url && (
+                          <a href={s.url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline inline-flex items-center gap-1 mt-0.5">
+                            Visitar <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        {s.notes && <p className="text-sm text-muted-foreground mt-2">{s.notes}</p>}
+                        {(s.seasons?.length || s.tags?.length) ? (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {s.seasons?.map((x) => <Badge key={x} className="text-[10px] bg-accent/20 text-accent-foreground border-accent/40">{x}</Badge>)}
+                            {s.tags?.map((x) => <Badge key={x} variant="outline" className="text-[10px]">{x}</Badge>)}
+                          </div>
+                        ) : null}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onDeleteStore(s.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Wishlist */}
+        <section>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-display text-lg">Wishlist</h2>
+              <Badge variant="outline" className="text-[10px]">{filteredProducts.length}</Badge>
+            </div>
+            <AddProductDialog stores={stores} onAdd={onAddProduct} dominantSeason={dominantSeason} />
+          </div>
+
+          {filteredProducts.length === 0 ? (
+            <Card className="bg-card/40 border-dashed border-border mt-4">
+              <CardContent className="p-5 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {products.length === 0 ? "Salve peças que combinam com sua estação." : "Nenhuma peça com esse filtro."}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="mt-4 space-y-5">
+              {/* Comprar agora */}
+              {groupedProducts.compat.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-3.5 w-3.5 text-accent" />
+                    <h3 className="text-xs font-medium uppercase tracking-wider text-accent">Comprar agora · combina com você</h3>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {groupedProducts.compat.map((p) => (
+                      <ProductCard key={p.id} product={p} stores={stores} highlight onDelete={onDeleteProduct} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Outras peças */}
+              {groupedProducts.others.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Outras peças salvas</h3>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {groupedProducts.others.map((p) => (
+                      <ProductCard key={p.id} product={p} stores={stores} onDelete={onDeleteProduct} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
+  );
+}
+
+function ProductCard({
+  product: p, stores, highlight, onDelete,
+}: {
+  product: FavoriteProduct;
+  stores: FavoriteStore[];
+  highlight?: boolean;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const store = stores.find((s) => s.id === p.store_id);
+  return (
+    <Card className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden ${highlight ? "ring-1 ring-accent/40" : ""}`}>
+      {p.image_url ? (
+        <div className="aspect-[4/5] bg-muted overflow-hidden relative">
+          <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+          {highlight && (
+            <Badge className="absolute top-2 left-2 text-[9px] bg-accent text-accent-foreground border-accent gap-1">
+              <Check className="h-2.5 w-2.5" /> combina
+            </Badge>
+          )}
+        </div>
+      ) : (
+        <div className="aspect-[4/5] bg-gradient-to-br from-secondary to-muted grid place-items-center relative">
+          <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+          {highlight && (
+            <Badge className="absolute top-2 left-2 text-[9px] bg-accent text-accent-foreground border-accent gap-1">
+              <Check className="h-2.5 w-2.5" /> combina
+            </Badge>
+          )}
+        </div>
+      )}
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-sm truncate">{p.name}</p>
+            {store && <p className="text-[10px] text-muted-foreground truncate">{store.name}</p>}
+          </div>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onDelete(p.id)}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          {p.price && <span className="text-xs font-medium">R$ {p.price.toFixed(2)}</span>}
+          {p.season && <Badge className="text-[9px] bg-accent/20 text-accent-foreground border-accent/40">{p.season}</Badge>}
+        </div>
+        {p.url && (
+          <a href={p.url} target="_blank" rel="noreferrer" className="mt-2 text-[11px] text-accent inline-flex items-center gap-1 hover:underline">
+            Ver produto <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
