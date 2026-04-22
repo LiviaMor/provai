@@ -838,14 +838,21 @@ function StoresTab({
 }
 
 function ProductCard({
-  product: p, stores, highlight, onDelete,
+  product: p, stores, highlight, measurements, onDelete,
 }: {
   product: FavoriteProduct;
   stores: FavoriteStore[];
   highlight?: boolean;
+  measurements: UserMeasurements;
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
+  const sizing: SizeSuggestion | null = useMemo(
+    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements),
+    [p.name, p.notes, measurements],
+  );
+  const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
+
   return (
     <Card className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden ${highlight ? "ring-1 ring-accent/40" : ""}`}>
       {p.image_url ? (
@@ -856,6 +863,11 @@ function ProductCard({
               <Check className="h-2.5 w-2.5" /> combina
             </Badge>
           )}
+          {sizing && (
+            <Badge className="absolute top-2 right-2 text-[10px] bg-foreground/90 text-background border-foreground gap-1 backdrop-blur">
+              <Ruler className="h-2.5 w-2.5" /> {sizing.letter}{sizing.numeric ? ` · ${sizing.numeric}` : ""}
+            </Badge>
+          )}
         </div>
       ) : (
         <div className="aspect-[4/5] bg-gradient-to-br from-secondary to-muted grid place-items-center relative">
@@ -863,6 +875,11 @@ function ProductCard({
           {highlight && (
             <Badge className="absolute top-2 left-2 text-[9px] bg-accent text-accent-foreground border-accent gap-1">
               <Check className="h-2.5 w-2.5" /> combina
+            </Badge>
+          )}
+          {sizing && (
+            <Badge className="absolute top-2 right-2 text-[10px] bg-foreground/90 text-background border-foreground gap-1">
+              <Ruler className="h-2.5 w-2.5" /> {sizing.letter}
             </Badge>
           )}
         </div>
@@ -881,6 +898,39 @@ function ProductCard({
           {p.price && <span className="text-xs font-medium">R$ {p.price.toFixed(2)}</span>}
           {p.season && <Badge className="text-[9px] bg-accent/20 text-accent-foreground border-accent/40">{p.season}</Badge>}
         </div>
+
+        {/* Bloco de sugestão de tamanho */}
+        {sizing ? (
+          <div className="mt-2.5 rounded-lg border border-border bg-muted/40 p-2.5 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Ruler className="h-3 w-3 text-accent shrink-0" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+                  {categoryLabel(sizing.category)}
+                </span>
+              </div>
+              <span className="text-[9px] text-muted-foreground">
+                confiança {sizing.confidence}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-base text-foreground">{sizing.letter}</span>
+              {sizing.numeric && <span className="text-xs text-muted-foreground">/ {sizing.numeric}</span>}
+            </div>
+            {sizing.fitNotes.length > 0 && (
+              <ul className="text-[10px] text-muted-foreground leading-relaxed space-y-0.5">
+                {sizing.fitNotes.slice(0, 3).map((n, i) => (
+                  <li key={i}>• {n}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : !hasMeasurements ? (
+          <p className="mt-2.5 text-[10px] text-muted-foreground italic">
+            Faça uma análise corporal para ver o tamanho recomendado.
+          </p>
+        ) : null}
+
         {p.url && (
           <a href={p.url} target="_blank" rel="noreferrer" className="mt-2 text-[11px] text-accent inline-flex items-center gap-1 hover:underline">
             Ver produto <ExternalLink className="h-3 w-3" />
