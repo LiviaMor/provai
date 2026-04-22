@@ -683,6 +683,19 @@ function StoresTab({
     return { compat, others };
   }, [filteredProducts, dominantTokens]);
 
+  // Categorias detectadas nos produtos visíveis — usado para desabilitar
+  // opções de barra que não se aplicam a nenhum item da lista atual.
+  const visibleCategories = useMemo(() => {
+    const set = new Set<GarmentCategory>();
+    filteredProducts.forEach((p) => set.add(detectCategory(`${p.name} ${p.notes ?? ""}`)));
+    return set;
+  }, [filteredProducts]);
+  const hemOptionApplies = (opt: HemPreference): boolean => {
+    const inBottom = HEM_OPTIONS_BY_CATEGORY.bottom.includes(opt);
+    const inDress = HEM_OPTIONS_BY_CATEGORY.dress.includes(opt);
+    return (inBottom && visibleCategories.has("bottom")) || (inDress && visibleCategories.has("dress"));
+  };
+
   const compatStoresCount = stores.filter((s) => (s.seasons ?? []).some((x) => matchesDominant(x))).length;
   const compatProductsCount = products.filter((p) => matchesDominant(p.season)).length;
 
