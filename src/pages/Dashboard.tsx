@@ -21,7 +21,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Area, AreaChart,
 } from "recharts";
-import { suggestSize, categoryLabel, type UserMeasurements, type SizeSuggestion } from "@/lib/sizing";
+import { suggestSize, categoryLabel, HEM_PREFERENCE_LABELS, type UserMeasurements, type SizeSuggestion, type HemPreference } from "@/lib/sizing";
 import { calcCompatScore, scoreColorClass, type ScoreResult } from "@/lib/compatScore";
 import { Ruler } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -597,6 +597,13 @@ function StoresTab({
   const [query, setQuery] = useState("");
   const [seasonFilter, setSeasonFilter] = useState<string>("compat"); // compat | all | <season>
   const [sortBy, setSortBy] = useState<string>("compat"); // compat | recent | price-asc | price-desc
+  const [hemPref, setHemPref] = useState<HemPreference>(() => {
+    if (typeof window === "undefined") return "ankle";
+    return (localStorage.getItem("hem_pref") as HemPreference) || "ankle";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("hem_pref", hemPref);
+  }, [hemPref]);
 
   // Conjunto de estações disponíveis (vindas das lojas + produtos)
   const availableSeasons = useMemo(() => {
@@ -720,6 +727,17 @@ function StoresTab({
                 <SelectItem value="price-desc">Maior preço</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={hemPref} onValueChange={(v) => setHemPref(v as HemPreference)}>
+              <SelectTrigger className="w-[200px]">
+                <Ruler className="h-3.5 w-3.5 mr-1" />
+                <SelectValue placeholder="Altura da barra" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {(Object.keys(HEM_PREFERENCE_LABELS) as HemPreference[]).map((k) => (
+                  <SelectItem key={k} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {dominantSeason && (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -828,7 +846,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.compat.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} highlight measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} highlight measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} hemPref={hemPref} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
@@ -841,7 +859,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.others.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} hemPref={hemPref} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
@@ -855,7 +873,7 @@ function StoresTab({
 }
 
 function ProductCard({
-  product: p, stores, highlight, measurements, dominantSeason, paletteHints, onDelete,
+  product: p, stores, highlight, measurements, dominantSeason, paletteHints, hemPref, onDelete,
 }: {
   product: FavoriteProduct;
   stores: FavoriteStore[];
@@ -863,12 +881,13 @@ function ProductCard({
   measurements: UserMeasurements;
   dominantSeason: string | null;
   paletteHints: string[];
+  hemPref: HemPreference;
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
   const sizing: SizeSuggestion | null = useMemo(
-    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements),
-    [p.name, p.notes, measurements],
+    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements, hemPref),
+    [p.name, p.notes, measurements, hemPref],
   );
   const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
   const score = useMemo(() => calcCompatScore({

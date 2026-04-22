@@ -103,10 +103,46 @@ export type SizeSuggestion = {
   confidence: "alta" | "média" | "baixa";
 };
 
+// Preferência de altura da barra (calça/vestido). Valores em cm a "encurtar"
+// em relação ao comprimento padrão da peça (positivo = mais curto que o padrão).
+export type HemPreference = "ankle" | "seven_eighths" | "cropped" | "floor" | "midi" | "knee";
+
+export const HEM_PREFERENCE_LABELS: Record<HemPreference, string> = {
+  floor: "Até o chão",
+  ankle: "Tornozelo",
+  seven_eighths: "7/8",
+  cropped: "Cropped / curta",
+  midi: "Midi (vestidos)",
+  knee: "Joelho (vestidos)",
+};
+
+// Quanto encurtar (cm) a partir do comprimento padrão para cada preferência.
+const HEM_OFFSET_BOTTOM: Record<HemPreference, number> = {
+  floor: -2,        // 2 cm além do tornozelo
+  ankle: 0,         // referência
+  seven_eighths: 6, // ~6 cm acima do tornozelo
+  cropped: 12,
+  midi: 0,
+  knee: 0,
+};
+
+const HEM_OFFSET_DRESS: Record<HemPreference, number> = {
+  floor: -10,
+  ankle: -2,
+  seven_eighths: 5,
+  cropped: 30,
+  midi: 15,         // joelho-canela
+  knee: 30,
+};
+
 const HEIGHT_REF_BOTTOM = 168; // referência de altura para inseam padrão
 const HEIGHT_REF_TOP = 168; // ref para comprimento de manga
 
-export function suggestSize(productText: string, m: UserMeasurements): SizeSuggestion | null {
+export function suggestSize(
+  productText: string,
+  m: UserMeasurements,
+  hemPref: HemPreference = "ankle",
+): SizeSuggestion | null {
   const category = detectCategory(productText);
   if (category === "unknown") return null;
   const fitNotes: string[] = [];
@@ -156,9 +192,13 @@ export function suggestSize(productText: string, m: UserMeasurements): SizeSugge
     let hemAdjust: number | undefined;
     if (m.inseam_cm) {
       const expected = 76 + (((m.height_cm ?? HEIGHT_REF_BOTTOM) - HEIGHT_REF_BOTTOM) * 0.45);
-      hemAdjust = +(expected - m.inseam_cm).toFixed(1);
+      const baseAdjust = expected - m.inseam_cm;
+      hemAdjust = +(baseAdjust + HEM_OFFSET_BOTTOM[hemPref]).toFixed(1);
+      const prefLabel = HEM_PREFERENCE_LABELS[hemPref].toLowerCase();
       if (Math.abs(hemAdjust) >= 1) {
-        fitNotes.push(hemAdjust > 0 ? `Barra: encurtar ${hemAdjust}cm` : `Barra: alongar ${Math.abs(hemAdjust)}cm`);
+        fitNotes.push(hemAdjust > 0 ? `Barra (${prefLabel}): encurtar ${hemAdjust}cm` : `Barra (${prefLabel}): alongar ${Math.abs(hemAdjust)}cm`);
+      } else {
+        fitNotes.push(`Barra (${prefLabel}): no ponto`);
       }
     }
     return {
@@ -184,9 +224,14 @@ export function suggestSize(productText: string, m: UserMeasurements): SizeSugge
     }
     let hemAdjust: number | undefined;
     if (m.height_cm) {
-      hemAdjust = +(((m.height_cm - HEIGHT_REF_BOTTOM) * 0.5)).toFixed(1);
+      const baseAdjust = (m.height_cm - HEIGHT_REF_BOTTOM) * 0.5; // positivo = peça curta vs. usuária alta
+      // Para vestidos, offset positivo significa "encurtar" — invertemos sinal para manter convenção
+      hemAdjust = +(-baseAdjust + HEM_OFFSET_DRESS[hemPref]).toFixed(1);
+      const prefLabel = HEM_PREFERENCE_LABELS[hemPref].toLowerCase();
       if (Math.abs(hemAdjust) >= 1) {
-        fitNotes.push(hemAdjust > 0 ? `Barra: alongar ${hemAdjust}cm` : `Barra: encurtar ${Math.abs(hemAdjust)}cm`);
+        fitNotes.push(hemAdjust > 0 ? `Barra (${prefLabel}): encurtar ${hemAdjust}cm` : `Barra (${prefLabel}): alongar ${Math.abs(hemAdjust)}cm`);
+      } else {
+        fitNotes.push(`Barra (${prefLabel}): no ponto`);
       }
     }
     return {
