@@ -22,7 +22,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Area, AreaChart,
 } from "recharts";
 import { suggestSize, categoryLabel, type UserMeasurements, type SizeSuggestion } from "@/lib/sizing";
+import { calcCompatScore, scoreColorClass, type ScoreResult } from "@/lib/compatScore";
 import { Ruler } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
 
 // ---------- Tipos enxutos das tabelas ----------
 type BodyAssessment = {
@@ -149,6 +152,15 @@ export default function Dashboard() {
     });
     return out as UserMeasurements;
   }, [bodyHistory]);
+
+  // Dicas de paleta extraídas da análise de cor mais recente — alimentam o score
+  const paletteHints = useMemo<string[]>(() => {
+    const a = colorHistory[0]?.analysis;
+    if (!a) return [];
+    const best = (a.palette?.best ?? []).map((c) => c.name).filter(Boolean) as string[];
+    const neutrals = (a.palette?.neutrals ?? []).map((c) => c.name).filter(Boolean) as string[];
+    return [...best, ...neutrals];
+  }, [colorHistory]);
 
   if (authLoading) {
     return (
@@ -287,6 +299,7 @@ export default function Dashboard() {
               userId={user.id}
               dominantSeason={dominantSeason}
               latestMeasurements={latestMeasurements}
+              paletteHints={paletteHints}
               onAddStore={async (data) => {
                 const { data: row, error } = await supabase.from("favorite_stores").insert({ ...data, user_id: user.id }).select().single();
                 if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
@@ -564,7 +577,7 @@ function ColorimetryTab({ analyses, loading }: { analyses: ColorAnalysisRow[]; l
 // ============================================================================
 // LOJAS + WISHLIST
 function StoresTab({
-  stores, products, userId, dominantSeason, latestMeasurements,
+  stores, products, userId, dominantSeason, latestMeasurements, paletteHints,
   onAddStore, onAddProduct, onDeleteStore, onDeleteProduct,
 }: {
   stores: FavoriteStore[];
@@ -572,6 +585,7 @@ function StoresTab({
   userId: string;
   dominantSeason: string | null;
   latestMeasurements: UserMeasurements;
+  paletteHints: string[];
   onAddStore: (d: { name: string; url: string | null; notes: string | null; seasons: string[]; tags: string[] }) => Promise<void>;
   onAddProduct: (d: { name: string; url: string | null; image_url: string | null; price: number | null; season: string | null; notes: string | null; store_id: string | null }) => Promise<void>;
   onDeleteStore: (id: string) => Promise<void>;
@@ -744,18 +758,21 @@ function StoresTab({
             )}
             {filteredStores.map((s) => {
               const isCompat = (s.seasons ?? []).some((x) => matchesDominant(x));
+              const score = calcCompatScore({
+                itemSeasons: s.seasons ?? [],
+                itemTags: s.tags ?? [],
+                itemText: `${s.name} ${s.notes ?? ""}`,
+                dominantSeason,
+                paletteHints,
+              });
               return (
                 <Card key={s.id} className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all ${isCompat ? "ring-1 ring-accent/40" : ""}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-display text-base truncate">{s.name}</p>
-                          {isCompat && (
-                            <Badge className="text-[9px] bg-accent text-accent-foreground border-accent gap-1">
-                              <Check className="h-2.5 w-2.5" /> compatível
-                            </Badge>
-                          )}
+                          <CompatScoreBadge score={score} />
                         </div>
                         {s.url && (
                           <a href={s.url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline inline-flex items-center gap-1 mt-0.5">
@@ -811,7 +828,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.compat.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} highlight measurements={latestMeasurements} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} highlight measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
@@ -824,7 +841,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.others.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} measurements={latestMeasurements} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
@@ -838,12 +855,14 @@ function StoresTab({
 }
 
 function ProductCard({
-  product: p, stores, highlight, measurements, onDelete,
+  product: p, stores, highlight, measurements, dominantSeason, paletteHints, onDelete,
 }: {
   product: FavoriteProduct;
   stores: FavoriteStore[];
   highlight?: boolean;
   measurements: UserMeasurements;
+  dominantSeason: string | null;
+  paletteHints: string[];
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
@@ -852,6 +871,13 @@ function ProductCard({
     [p.name, p.notes, measurements],
   );
   const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
+  const score = useMemo(() => calcCompatScore({
+    itemSeasons: p.season ? [p.season] : [],
+    itemTags: store?.tags ?? [],
+    itemText: `${p.name} ${p.notes ?? ""}`,
+    dominantSeason,
+    paletteHints,
+  }), [p.name, p.notes, p.season, store, dominantSeason, paletteHints]);
 
   return (
     <Card className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden ${highlight ? "ring-1 ring-accent/40" : ""}`}>
@@ -889,6 +915,7 @@ function ProductCard({
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm truncate">{p.name}</p>
             {store && <p className="text-[10px] text-muted-foreground truncate">{store.name}</p>}
+            <div className="mt-1.5"><CompatScoreBadge score={score} compact /></div>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onDelete(p.id)}>
             <Trash2 className="h-3 w-3" />
@@ -1172,4 +1199,64 @@ function InsightsTab({ body, colors }: { body: BodyAssessment[]; colors: ColorAn
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   return <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />{label}</span>;
+}
+
+// ============================================================================
+// Badge de score de compatibilidade com tooltip explicativo
+function CompatScoreBadge({ score, compact }: { score: ScoreResult; compact?: boolean }) {
+  const colorClass = scoreColorClass(score.level);
+  const positives = score.reasons.filter((r) => r.positive);
+  const negatives = score.reasons.filter((r) => !r.positive);
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2 ${compact ? "py-0.5 text-[10px]" : "py-1 text-xs"} font-medium ${colorClass} cursor-help transition-transform hover:scale-105`}
+          >
+            <Sparkles className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} />
+            <span>{score.score}%</span>
+            {!compact && <span className="opacity-70">· {score.level}</span>}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs bg-popover border-border z-50">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-display">Compatibilidade {score.level}</span>
+              <span className="text-xs font-medium">{score.score}/100</span>
+            </div>
+            <Progress value={score.score} className="h-1.5" />
+            {positives.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[10px] uppercase tracking-wider text-accent">A favor</p>
+                <ul className="text-[11px] text-foreground/90 space-y-0.5">
+                  {positives.map((r, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-accent mt-0.5">+{r.weight}</span>
+                      <span>{r.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {negatives.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Atenção</p>
+                <ul className="text-[11px] text-muted-foreground space-y-0.5">
+                  {negatives.map((r, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="mt-0.5">{r.weight !== 0 ? r.weight : "·"}</span>
+                      <span>{r.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  );
 }
