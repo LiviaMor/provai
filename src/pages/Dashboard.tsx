@@ -915,6 +915,7 @@ function ProductCard({
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm truncate">{p.name}</p>
             {store && <p className="text-[10px] text-muted-foreground truncate">{store.name}</p>}
+            <div className="mt-1.5"><CompatScoreBadge score={score} compact /></div>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onDelete(p.id)}>
             <Trash2 className="h-3 w-3" />
