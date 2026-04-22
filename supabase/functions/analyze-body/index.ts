@@ -99,6 +99,25 @@ const fetchProductContext = async (raw?: string) => {
   }
 };
 
+// Fórmulas validadas para % de gordura corporal:
+// - CUN-BAE (Gómez-Ambrosi et al., Diabetes Care 2012, validado vs DEXA, R²≈0,86)
+// - Deurenberg (Br J Nutr 1991) — BMI + idade + sexo
+// - U.S. Navy / DoD (Hodgdon & Beckett, NHRC 1984) — circunferências
+const sexFlag = (g?: string): 0 | 1 => {
+  const t = String(g ?? "").toLowerCase();
+  if (t.startsWith("m") && !t.startsWith("mu") && !t.startsWith("fe")) return 1;
+  return 0;
+};
+const cunBae = (bmi: number, age: number, s: 0 | 1) =>
+  -44.988 + 0.503 * age + 10.689 * s + 3.172 * bmi - 0.026 * bmi * bmi
+  + 0.181 * bmi * s - 0.02 * bmi * age - 0.005 * bmi * bmi * s + 0.00021 * bmi * bmi * age;
+const deurenberg = (bmi: number, age: number, s: 0 | 1) => 1.20 * bmi + 0.23 * age - 10.8 * s - 5.4;
+const navyBF = (s: 0 | 1, h: number, w: number, n: number, hip?: number) => {
+  if (s === 1) return w > n ? 86.010 * Math.log10(w - n) - 70.041 * Math.log10(h) + 36.76 : undefined;
+  if (!hip || w + hip <= n) return undefined;
+  return 163.205 * Math.log10(w + hip - n) - 97.684 * Math.log10(h) - 78.387;
+};
+
 const fallbackAnalysis = (payload: BodyPayload) => {
   const manual = payload.manualMeasurements ?? {};
   const height = manual.height_cm ?? payload.heightCm ?? 170;
@@ -106,19 +125,51 @@ const fallbackAnalysis = (payload: BodyPayload) => {
   const waist = manual.waist_cm ?? Math.round(height * 0.43 + (weight - 65) * 0.35);
   const hip = manual.hip_cm ?? Math.round(waist * 1.18);
   const bust = manual.bust_cm ?? Math.round(waist * 1.1);
+  const neck = manual.neck_cm ?? Math.round(height * 0.21);
+  const age = payload.age && payload.age >= 12 && payload.age <= 90 ? payload.age : 30;
+  const sex = sexFlag(payload.gender);
   const bmi = Math.round((weight / Math.pow(height / 100, 2)) * 10) / 10;
   const bmiClass = bmi < 18.5 ? "Abaixo do peso" : bmi < 25 ? "Normal" : bmi < 30 ? "Sobrepeso" : "Obeso";
   const bodyType = hip > bust + 7 ? "Triângulo" : bust > hip + 7 ? "Triângulo invertido" : Math.abs(bust - hip) <= 6 && waist < bust - 18 ? "Ampulheta" : waist > hip * 0.86 ? "Oval" : "Retangular";
+  const breakdown: Array<{ method: string; value: number; reference: string }> = [];
+  const cb = cunBae(bmi, age, sex); if (Number.isFinite(cb)) breakdown.push({ method: "CUN-BAE", value: Math.round(cb * 10) / 10, reference: "Gómez-Ambrosi et al., Diabetes Care 2012 (validado vs. DEXA, R²≈0,86)." });
+  const dn = deurenberg(bmi, age, sex); if (Number.isFinite(dn)) breakdown.push({ method: "Deurenberg", value: Math.round(dn * 10) / 10, reference: "Deurenberg, Weststrate & Seidell, Br J Nutr 1991 (EE≈4 p.p.)." });
+  const nv = navyBF(sex, height, waist, neck, hip); if (nv !== undefined && Number.isFinite(nv)) breakdown.push({ method: "U.S. Navy", value: Math.round(nv * 10) / 10, reference: "Hodgdon & Beckett, Naval Health Research Center 1984 (EE≈3 p.p.)." });
+  const filtered = breakdown.map((b) => ({ ...b, value: Math.max(5, Math.min(60, b.value)) }));
+  const bodyFatPct = filtered.length ? Number((filtered.reduce((s, b) => s + b.value, 0) / filtered.length).toFixed(1)) : null;
+  const bodyFatLow = bodyFatPct !== null ? Math.max(3, Number((bodyFatPct - 3.5).toFixed(1))) : null;
+  const bodyFatHigh = bodyFatPct !== null ? Math.min(65, Number((bodyFatPct + 3.5).toFixed(1))) : null;
+  const muscleMass = bodyFatPct !== null ? Number((weight * (1 - bodyFatPct / 100) * 0.72).toFixed(1)) : null;
+  const bmr = Math.round(10 * weight + 6.25 * height - 5 * age + (sex === 1 ? 5 : -161));
   return {
     scan_id: crypto.randomUUID(),
     analyzed_at: new Date().toISOString(),
-    input_data: { photos_provided: [payload.imageDataUrl ? "front" : undefined, payload.sideImageDataUrl ? "side" : undefined].filter(Boolean), user_provided_height_cm: payload.heightCm ?? null, user_provided_weight_kg: payload.weightKg ?? null, gender: payload.gender ?? null, goal: payload.shoppingGoal ?? null },
-    measurements: { height_cm: { value: height, confidence: "media" }, weight_kg: { value: weight, confidence: "media" }, bust_cm: { value: bust, confidence: "media" }, underbust_cm: { value: Math.round(bust * 0.83), confidence: "baixa" }, waist_cm: { value: waist, confidence: "media" }, hip_cm: { value: hip, confidence: "media" }, shoulder_width_cm: { value: Math.round(height * 0.255), confidence: "media" }, inseam_cm: { value: manual.inseam_cm ?? Math.round(height * 0.455), confidence: "media" }, outseam_cm: { value: Math.round(height * 0.59), confidence: "media" }, arm_length_cm: { value: manual.arm_length_cm ?? Math.round(height * 0.33), confidence: "media" }, thigh_cm: { value: Math.round(hip * 0.56), confidence: "baixa" }, neck_cm: { value: Math.round(height * 0.21), confidence: "media" }, torso_length_cm: { value: Math.round(height * 0.25), confidence: "media" } },
-    body_analysis: { bmi, bmi_category: bmiClass, body_fat_estimate_pct: payload.bioimpedance?.bodyFatPct ?? null, muscle_mass_kg: payload.bioimpedance?.muscleMassKg ?? null, visceral_fat: payload.bioimpedance?.visceralFat ?? null, basal_metabolic_rate_kcal: payload.bioimpedance?.bmr ?? null, tissue_distribution: "Estimativa por medidas, foto e bioimpedância quando informada.", body_fat_disclaimer: "Estimativa visual. Consulte um profissional para avaliação precisa.", body_type: bodyType, waist_to_hip_ratio: Number((waist / hip).toFixed(2)), abdominal_risk: waist >= 88 ? "Atenção" : "Baixo" },
+    input_data: { photos_provided: [payload.imageDataUrl ? "front" : undefined, payload.sideImageDataUrl ? "side" : undefined].filter(Boolean), user_provided_height_cm: payload.heightCm ?? null, user_provided_weight_kg: payload.weightKg ?? null, age: payload.age ?? null, gender: payload.gender ?? null, goal: payload.shoppingGoal ?? null },
+    measurements: { height_cm: { value: height, confidence: "media" }, weight_kg: { value: weight, confidence: "media" }, bust_cm: { value: bust, confidence: "media" }, underbust_cm: { value: Math.round(bust * 0.83), confidence: "baixa" }, waist_cm: { value: waist, confidence: "media" }, hip_cm: { value: hip, confidence: "media" }, shoulder_width_cm: { value: Math.round(height * 0.255), confidence: "media" }, inseam_cm: { value: manual.inseam_cm ?? Math.round(height * 0.455), confidence: "media" }, outseam_cm: { value: Math.round(height * 0.59), confidence: "media" }, arm_length_cm: { value: manual.arm_length_cm ?? Math.round(height * 0.33), confidence: "media" }, thigh_cm: { value: Math.round(hip * 0.56), confidence: "baixa" }, neck_cm: { value: neck, confidence: "media" }, torso_length_cm: { value: Math.round(height * 0.25), confidence: "media" } },
+    body_analysis: {
+      bmi,
+      bmi_category: bmiClass,
+      body_fat_estimate_pct: bodyFatPct,
+      body_fat_range_low: bodyFatLow,
+      body_fat_range_high: bodyFatHigh,
+      body_fat_method: filtered.length > 1 ? `Média de ${filtered.map((b) => b.method).join(" + ")}` : (filtered[0]?.method ?? null),
+      body_fat_methodology_note: filtered.length
+        ? `Estimativa cruzando ${filtered.map((b) => `${b.method} (${b.value}%)`).join(", ")}. ${filtered.map((b) => b.reference).join(" ")} Bioimpedância/DEXA refinam o resultado.`
+        : "Sem dados suficientes para estimar; informe altura, peso, cintura e pescoço.",
+      body_fat_breakdown: filtered,
+      muscle_mass_kg: muscleMass,
+      visceral_fat: payload.bioimpedance?.visceralFat ?? null,
+      basal_metabolic_rate_kcal: payload.bioimpedance?.bmr ?? bmr,
+      tissue_distribution: "Estimativa por medidas, foto e bioimpedância quando informada.",
+      body_fat_disclaimer: "Estimativa por fórmulas validadas (CUN-BAE, Deurenberg, U.S. Navy). Não substitui DEXA, bioimpedância clínica nem consulta médica.",
+      body_type: bodyType,
+      waist_to_hip_ratio: Number((waist / hip).toFixed(2)),
+      abdominal_risk: (sex === 1 ? waist >= 102 : waist >= 88) ? "Atenção" : (sex === 1 ? waist >= 94 : waist >= 80) ? "Aumentado" : "Baixo",
+    },
     clothing_sizes: { size_brazil: bust < 92 ? "P/M" : bust < 104 ? "M/G" : "G/GG", size_international: bust < 92 ? "S/M" : bust < 104 ? "M/L" : "L/XL", size_european: waist < 76 ? 38 : waist < 88 ? 42 : 44, pants_number_brazil: waist < 78 ? 40 : waist < 90 ? 44 : 46, bra_size: "Confirme busto e tórax", shoe_size_br: null },
     tailoring: { hem_adjustment_cm: 0, hem_note: "Compare o entrepernas estimado com a tabela da marca para prever barra.", sleeve_adjustment_cm: 0, sleeve_note: "Compare o comprimento do braço com a manga para prever ajuste de punho.", shoulder_fit: "Padrão", waist_fit_suggestion: "Use fita métrica real para confirmar medidas antes de compras caras." },
     style_recommendations: { body_type_description: `Tipo ${bodyType}: recomendações baseadas nas proporções estimadas.`, what_to_wear: ["Peças com cintura marcada", "Blazer aberto", "Tecidos com movimento"], what_to_avoid: ["Modelagens sem estrutura se quiser destacar a cintura"], best_necklines: ["Decote V"], best_pants_styles: ["Reta", "Cintura média"], best_dress_styles: ["Envelope", "Evasê"], pattern_tips: "Evite contrastes horizontais no ponto de maior volume." },
-    quality_assessment: { overall_confidence: "media", photo_quality_issues: ["Estimativa demonstrativa"], manual_input_recommended: ["thigh_cm", "underbust_cm"], accuracy_note: "Para maior precisão, informe medidas manuais e use roupa justa na próxima foto." },
+    quality_assessment: { overall_confidence: "media", photo_quality_issues: ["Estimativa demonstrativa"], manual_input_recommended: ["thigh_cm", "underbust_cm", "neck_cm"], accuracy_note: "Para maior precisão, informe medidas manuais (especialmente pescoço para Navy) e use roupa justa na próxima foto." },
   };
 };
 
