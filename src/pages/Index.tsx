@@ -489,6 +489,7 @@ const Index = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [gender, setGender] = useState("Feminino");
+  const [age, setAge] = useState<string>("");
   const [objective, setObjective] = useState("Ambos");
   const [productUrl, setProductUrl] = useState("");
   const [notes, setNotes] = useState("Comprar roupas online com menos troca");
@@ -511,7 +512,7 @@ const Index = () => {
     bmr: parseNumber(bioimpedance.bmr ?? ""),
     source: bioFileName ? `Arquivo temporário: ${bioFileName}` : undefined,
   }), [bioFileName, bioimpedance]);
-  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements), bioimpedanceData);
+  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements, { gender, age: parseNumber(age) }), bioimpedanceData);
   const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
@@ -594,7 +595,7 @@ const Index = () => {
     const numeric = parseNumber(value);
     if (!analysis || !numeric) return;
     const measurements = { ...analysis.measurements, [key]: numeric };
-    const recalculatedFitness = mergeBioimpedanceFitness(calculateFallbackFitness(measurements), bioimpedanceData);
+    const recalculatedFitness = mergeBioimpedanceFitness(calculateFallbackFitness(measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
     setAnalysis({ ...analysis, measurements, fitnessAssessment: recalculatedFitness });
   };
 
@@ -668,7 +669,14 @@ const Index = () => {
     if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
 
     const result = normalizeAnalysis(data);
-    result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements), bioimpedanceData);
+    result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
+    // Sempre cruzar com fórmulas locais como sanity-check, preservando valores vindos do backend.
+    const local = calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) });
+    result.fitnessAssessment = {
+      ...local,
+      ...result.fitnessAssessment,
+      bodyFatBreakdown: result.fitnessAssessment?.bodyFatBreakdown?.length ? result.fitnessAssessment.bodyFatBreakdown : local.bodyFatBreakdown,
+    };
     setManual((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.measurements).map(([key, value]) => [key, String(value)])) }));
     setAnalysis(result);
     setMode("results");
