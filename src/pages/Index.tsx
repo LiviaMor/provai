@@ -534,12 +534,18 @@ const Index = () => {
   })), [currentMeasurements]);
 
   const measurementRows = useMemo(() => {
-    const keys: MeasurementKey[] = ["bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
+    const keys: MeasurementKey[] = ["height_cm", "estimated_weight_kg", "bust_cm", "underbust_cm", "waist_cm", "hip_cm", "inseam_cm", "outseam_cm", "arm_length_cm", "shoulder_width_cm", "thigh_cm", "neck_cm", "torso_length_cm"];
+    const statusFor = (key: MeasurementKey) => {
+      if (key === "height_cm" || key === "estimated_weight_kg") return "✎ ajustável";
+      if (key === "inseam_cm") return "→ barra: +3cm";
+      if (key === "arm_length_cm") return "→ punho padrão";
+      return "✓";
+    };
     return keys.map((key) => ({
       key,
       label: measureLabels[key],
       value: formatMeasure(key, currentMeasurements[key]),
-      status: key === "inseam_cm" ? "→ barra: +3cm" : key === "arm_length_cm" ? "→ punho padrão" : "✓",
+      status: statusFor(key),
     }));
   }, [currentMeasurements]);
 
