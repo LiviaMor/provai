@@ -605,6 +605,30 @@ function StoresTab({
     if (typeof window !== "undefined") localStorage.setItem("hem_pref", hemPref);
   }, [hemPref]);
 
+  // ---------- Override manual de medidas (altura/peso) ----------
+  // O usuário pode informar manualmente mesmo sem análise corporal,
+  // ou ajustar valores existentes para recalcular barra/tamanho.
+  type ManualMeasures = { height_cm?: number; estimated_weight_kg?: number };
+  const [manualMeasures, setManualMeasures] = useState<ManualMeasures>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("manual_measures") || "{}"); } catch { return {}; }
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("manual_measures", JSON.stringify(manualMeasures));
+  }, [manualMeasures]);
+
+  // Mescla: override do usuário tem prioridade sobre o que veio da análise.
+  const effectiveMeasurements: UserMeasurements = useMemo(() => ({
+    ...latestMeasurements,
+    ...(manualMeasures.height_cm ? { height_cm: manualMeasures.height_cm } : {}),
+    ...(manualMeasures.estimated_weight_kg ? { estimated_weight_kg: manualMeasures.estimated_weight_kg } : {}),
+  }), [latestMeasurements, manualMeasures]);
+
+  const hasReferenceMeasure = Boolean(
+    effectiveMeasurements.height_cm || effectiveMeasurements.estimated_weight_kg ||
+    effectiveMeasurements.bust_cm || effectiveMeasurements.waist_cm || effectiveMeasurements.hip_cm,
+  );
+
   // Conjunto de estações disponíveis (vindas das lojas + produtos)
   const availableSeasons = useMemo(() => {
     const set = new Set<string>();
