@@ -758,18 +758,21 @@ function StoresTab({
             )}
             {filteredStores.map((s) => {
               const isCompat = (s.seasons ?? []).some((x) => matchesDominant(x));
+              const score = calcCompatScore({
+                itemSeasons: s.seasons ?? [],
+                itemTags: s.tags ?? [],
+                itemText: `${s.name} ${s.notes ?? ""}`,
+                dominantSeason,
+                paletteHints,
+              });
               return (
                 <Card key={s.id} className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all ${isCompat ? "ring-1 ring-accent/40" : ""}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-display text-base truncate">{s.name}</p>
-                          {isCompat && (
-                            <Badge className="text-[9px] bg-accent text-accent-foreground border-accent gap-1">
-                              <Check className="h-2.5 w-2.5" /> compatível
-                            </Badge>
-                          )}
+                          <CompatScoreBadge score={score} />
                         </div>
                         {s.url && (
                           <a href={s.url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline inline-flex items-center gap-1 mt-0.5">
