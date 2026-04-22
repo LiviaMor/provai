@@ -605,6 +605,30 @@ function StoresTab({
     if (typeof window !== "undefined") localStorage.setItem("hem_pref", hemPref);
   }, [hemPref]);
 
+  // ---------- Override manual de medidas (altura/peso) ----------
+  // O usuário pode informar manualmente mesmo sem análise corporal,
+  // ou ajustar valores existentes para recalcular barra/tamanho.
+  type ManualMeasures = { height_cm?: number; estimated_weight_kg?: number };
+  const [manualMeasures, setManualMeasures] = useState<ManualMeasures>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("manual_measures") || "{}"); } catch { return {}; }
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("manual_measures", JSON.stringify(manualMeasures));
+  }, [manualMeasures]);
+
+  // Mescla: override do usuário tem prioridade sobre o que veio da análise.
+  const effectiveMeasurements: UserMeasurements = useMemo(() => ({
+    ...latestMeasurements,
+    ...(manualMeasures.height_cm ? { height_cm: manualMeasures.height_cm } : {}),
+    ...(manualMeasures.estimated_weight_kg ? { estimated_weight_kg: manualMeasures.estimated_weight_kg } : {}),
+  }), [latestMeasurements, manualMeasures]);
+
+  const hasReferenceMeasure = Boolean(
+    effectiveMeasurements.height_cm || effectiveMeasurements.estimated_weight_kg ||
+    effectiveMeasurements.bust_cm || effectiveMeasurements.waist_cm || effectiveMeasurements.hip_cm,
+  );
+
   // Conjunto de estações disponíveis (vindas das lojas + produtos)
   const availableSeasons = useMemo(() => {
     const set = new Set<string>();
@@ -701,6 +725,14 @@ function StoresTab({
 
   return (
     <div className="space-y-6">
+      {/* ---------- MEDIDAS DE REFERÊNCIA ---------- */}
+      <ReferenceMeasuresCard
+        measurements={effectiveMeasurements}
+        manual={manualMeasures}
+        hasFromAnalysis={Boolean(latestMeasurements.height_cm || latestMeasurements.estimated_weight_kg || latestMeasurements.bust_cm)}
+        required={!hasReferenceMeasure}
+        onChange={setManualMeasures}
+      />
       {/* ---------- BARRA DE FILTROS ---------- */}
       <Card className="bg-card/60 border-border shadow-panel">
         <CardContent className="p-4 space-y-4">
@@ -891,7 +923,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.compat.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} highlight measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} hemPref={hemPref} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} highlight measurements={effectiveMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} hemPref={hemPref} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
@@ -904,7 +936,7 @@ function StoresTab({
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {groupedProducts.others.map((p) => (
-                      <ProductCard key={p.id} product={p} stores={stores} measurements={latestMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} hemPref={hemPref} onDelete={onDeleteProduct} />
+                      <ProductCard key={p.id} product={p} stores={stores} measurements={effectiveMeasurements} dominantSeason={dominantSeason} paletteHints={paletteHints} hemPref={hemPref} onDelete={onDeleteProduct} />
                     ))}
                   </div>
                 </div>
@@ -914,6 +946,100 @@ function StoresTab({
         </section>
       </div>
     </div>
+  );
+}
+
+function ReferenceMeasuresCard({
+  measurements, manual, hasFromAnalysis, required, onChange,
+}: {
+  measurements: UserMeasurements;
+  manual: { height_cm?: number; estimated_weight_kg?: number };
+  hasFromAnalysis: boolean;
+  required: boolean;
+  onChange: (m: { height_cm?: number; estimated_weight_kg?: number }) => void;
+}) {
+  const [open, setOpen] = useState(required);
+  useEffect(() => { if (required) setOpen(true); }, [required]);
+  const [height, setHeight] = useState<string>(manual.height_cm ? String(manual.height_cm) : "");
+  const [weight, setWeight] = useState<string>(manual.estimated_weight_kg ? String(manual.estimated_weight_kg) : "");
+
+  const apply = () => {
+    const h = Number(height);
+    const w = Number(weight);
+    onChange({
+      ...(Number.isFinite(h) && h > 0 ? { height_cm: h } : {}),
+      ...(Number.isFinite(w) && w > 0 ? { estimated_weight_kg: w } : {}),
+    });
+    setOpen(false);
+  };
+  const clear = () => { setHeight(""); setWeight(""); onChange({}); };
+
+  return (
+    <Card className={`border-border shadow-panel ${required ? "bg-accent/5 border-accent/40" : "bg-card/60"}`}>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Ruler className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-display text-sm">Medidas de referência</p>
+              <p className="text-[11px] text-muted-foreground">
+                {required
+                  ? "Informe ao menos altura ou peso para calcular tamanho e barra."
+                  : hasFromAnalysis
+                    ? `Usando análise corporal${manual.height_cm || manual.estimated_weight_kg ? " + ajustes manuais" : ""}.`
+                    : "Valores informados manualmente."}
+              </p>
+              {!open && (measurements.height_cm || measurements.estimated_weight_kg) && (
+                <p className="text-[11px] text-foreground/80 mt-1">
+                  {measurements.height_cm ? `${measurements.height_cm} cm` : "—"}
+                  {" · "}
+                  {measurements.estimated_weight_kg ? `${measurements.estimated_weight_kg} kg` : "—"}
+                </p>
+              )}
+            </div>
+          </div>
+          {!required && (
+            <Button variant="ghost" size="sm" className="h-7 text-[11px] shrink-0" onClick={() => setOpen((v) => !v)}>
+              {open ? "Fechar" : "Ajustar"}
+            </Button>
+          )}
+        </div>
+        {open && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Altura (cm)</label>
+              <Input
+                inputMode="numeric"
+                value={height}
+                onChange={(e) => setHeight(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="ex.: 168"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Peso (kg)</label>
+              <Input
+                inputMode="numeric"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
+                placeholder="ex.: 62"
+                className="h-9"
+              />
+            </div>
+            <div className="col-span-2 flex items-center gap-2 pt-1">
+              <Button size="sm" className="h-8 text-xs" onClick={apply} disabled={!height && !weight}>
+                Recalcular recomendações
+              </Button>
+              {(manual.height_cm || manual.estimated_weight_kg) && (
+                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={clear}>
+                  Limpar ajustes
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
