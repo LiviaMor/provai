@@ -733,9 +733,19 @@ function StoresTab({
                 <SelectValue placeholder="Altura da barra" />
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
-                {(Object.keys(HEM_PREFERENCE_LABELS) as HemPreference[]).map((k) => (
-                  <SelectItem key={k} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectLabel>Calças & saias</SelectLabel>
+                  {HEM_OPTIONS_BY_CATEGORY.bottom.map((k) => (
+                    <SelectItem key={`b-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Vestidos & macacões</SelectLabel>
+                  {HEM_OPTIONS_BY_CATEGORY.dress.map((k) => (
+                    <SelectItem key={`d-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
