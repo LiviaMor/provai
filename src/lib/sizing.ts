@@ -168,6 +168,7 @@ export function suggestSize(
 ): SizeSuggestion | null {
   const category = detectCategory(productText);
   if (category === "unknown") return null;
+  const effectivePref = resolveHemPreference(category, hemPref);
   const fitNotes: string[] = [];
 
   if (category === "top" || category === "outerwear") {
