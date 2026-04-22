@@ -60,6 +60,12 @@ type FitnessAssessment = {
   bmiClass?: string;
   waistRisk?: string;
   bodyFatEstimate?: string;
+  bodyFatPct?: number;
+  bodyFatLow?: number;
+  bodyFatHigh?: number;
+  bodyFatMethod?: string;
+  bodyFatReference?: string;
+  bodyFatBreakdown?: Array<{ method: string; value: number; reference: string }>;
   muscleMassEstimate?: string;
   abdominalFatEstimate?: string;
   tissueDistribution?: string;
@@ -301,7 +307,15 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
         bmi: data.body_analysis?.bmi,
         bmiClass: data.body_analysis?.bmi_category,
         waistRisk: `Risco abdominal: ${data.body_analysis?.abdominal_risk ?? "em avaliação"}. Relação cintura/quadril: ${data.body_analysis?.waist_to_hip_ratio ?? "—"}`,
-        bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct ? `${data.body_analysis.body_fat_estimate_pct}%` : "Estimativa visual conservadora",
+        bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct
+          ? `${data.body_analysis.body_fat_estimate_pct}%${data.body_analysis?.body_fat_range_low && data.body_analysis?.body_fat_range_high ? ` (faixa ${data.body_analysis.body_fat_range_low}–${data.body_analysis.body_fat_range_high}%)` : ""}`
+          : "Estimativa visual conservadora",
+        bodyFatPct: typeof data.body_analysis?.body_fat_estimate_pct === "number" ? data.body_analysis.body_fat_estimate_pct : undefined,
+        bodyFatLow: typeof data.body_analysis?.body_fat_range_low === "number" ? data.body_analysis.body_fat_range_low : undefined,
+        bodyFatHigh: typeof data.body_analysis?.body_fat_range_high === "number" ? data.body_analysis.body_fat_range_high : undefined,
+        bodyFatMethod: data.body_analysis?.body_fat_method,
+        bodyFatReference: data.body_analysis?.body_fat_methodology_note,
+        bodyFatBreakdown: Array.isArray(data.body_analysis?.body_fat_breakdown) ? data.body_analysis.body_fat_breakdown.filter((b: any) => b && typeof b.value === "number" && b.method) : undefined,
         muscleMassEstimate: data.body_analysis?.muscle_mass_kg ? `${data.body_analysis.muscle_mass_kg}kg` : undefined,
         abdominalFatEstimate: data.body_analysis?.visceral_fat ? `Gordura visceral ${data.body_analysis.visceral_fat}` : undefined,
         tissueDistribution: data.body_analysis?.tissue_distribution,
@@ -325,24 +339,110 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
   return data as Analysis;
 };
 
-const calculateFallbackFitness = (measurements: Measurements): FitnessAssessment => {
-  const heightM = measurements.height_cm ? measurements.height_cm / 100 : undefined;
+// Estimativas de % gordura corporal por fórmulas validadas em literatura.
+// - CUN-BAE (Gómez-Ambrosi et al., Diabetes Care 2012): BMI + idade + sexo, validado contra DEXA.
+// - Deurenberg (Br J Nutr 1991, "BMI as a measure of body fatness"): BMI + idade + sexo, populacional.
+// - U.S. Navy / DoD circumference method: cintura, pescoço (e quadril em mulheres) + altura.
+// Cada método retorna intervalo ±erro padrão típico (~3-4 p.p. para CUN-BAE/Deurenberg, ~3 p.p. para Navy).
+const sexFactor = (gender?: string) => {
+  const g = String(gender ?? "").toLowerCase();
+  if (g.startsWith("m") && !g.startsWith("mu") && !g.startsWith("fe")) return 1; // masculino
+  return 0; // feminino/padrão
+};
+
+const cunBae = (bmi: number, age: number, sex: 0 | 1) =>
+  -44.988 + 0.503 * age + 10.689 * sex + 3.172 * bmi - 0.026 * bmi * bmi
+  + 0.181 * bmi * sex - 0.02 * bmi * age - 0.005 * bmi * bmi * sex + 0.00021 * bmi * bmi * age;
+
+const deurenberg = (bmi: number, age: number, sex: 0 | 1) =>
+  1.20 * bmi + 0.23 * age - 10.8 * sex - 5.4;
+
+const usNavyBodyFat = (sex: 0 | 1, heightCm: number, waistCm: number, neckCm: number, hipCm?: number) => {
+  if (sex === 1) {
+    if (waistCm <= neckCm) return undefined;
+    return 86.010 * Math.log10(waistCm - neckCm) - 70.041 * Math.log10(heightCm) + 36.76;
+  }
+  if (!hipCm || waistCm + hipCm <= neckCm) return undefined;
+  return 163.205 * Math.log10(waistCm + hipCm - neckCm) - 97.684 * Math.log10(heightCm) - 78.387;
+};
+
+const calculateFallbackFitness = (measurements: Measurements, options?: { gender?: string; age?: number }): FitnessAssessment => {
+  const heightCm = measurements.height_cm;
+  const heightM = heightCm ? heightCm / 100 : undefined;
   const weight = measurements.estimated_weight_kg;
-  const bmi = heightM && weight ? Number((weight / (heightM * heightM)).toFixed(1)) : undefined;
-  const bmiClass = !bmi ? "Dados insuficientes" : bmi < 18.5 ? "Abaixo do peso" : bmi < 25 ? "Normal" : bmi < 30 ? "Sobrepeso" : "Obeso";
   const waist = measurements.waist_cm;
   const hip = measurements.hip_cm;
+  const neck = measurements.neck_cm;
+  const sex: 0 | 1 = sexFactor(options?.gender) as 0 | 1;
+  const age = options?.age && options.age >= 12 && options.age <= 90 ? options.age : 30;
+
+  const bmi = heightM && weight ? Number((weight / (heightM * heightM)).toFixed(1)) : undefined;
+  const bmiClass = !bmi ? "Dados insuficientes" : bmi < 18.5 ? "Abaixo do peso" : bmi < 25 ? "Normal" : bmi < 30 ? "Sobrepeso" : "Obeso";
   const waistHip = waist && hip ? Number((waist / hip).toFixed(2)) : undefined;
-  const bodyFatPct = bmi ? Math.max(12, Math.min(48, Math.round(bmi * 1.18 + (waistHip ? waistHip * 18 : 5)))) : undefined;
+
+  const breakdown: Array<{ method: string; value: number; reference: string }> = [];
+  if (bmi) {
+    const cb = cunBae(bmi, age, sex);
+    if (Number.isFinite(cb)) breakdown.push({ method: "CUN-BAE", value: Math.round(cb * 10) / 10, reference: "Gómez-Ambrosi et al., Diabetes Care 2012 (validado vs. DEXA, R²≈0,86)." });
+    const dn = deurenberg(bmi, age, sex);
+    if (Number.isFinite(dn)) breakdown.push({ method: "Deurenberg", value: Math.round(dn * 10) / 10, reference: "Deurenberg, Weststrate & Seidell, Br J Nutr 1991 (erro padrão ≈ 4 p.p.)." });
+  }
+  if (heightCm && waist && neck) {
+    const navy = usNavyBodyFat(sex, heightCm, waist, neck, hip);
+    if (navy !== undefined && Number.isFinite(navy)) breakdown.push({ method: "U.S. Navy", value: Math.round(navy * 10) / 10, reference: "Hodgdon & Beckett, Naval Health Research Center 1984 (erro padrão ≈ 3 p.p.)." });
+  }
+
+  const filtered = breakdown.map((b) => ({ ...b, value: Math.max(5, Math.min(60, b.value)) }));
+  const bodyFatPct = filtered.length ? Number((filtered.reduce((sum, b) => sum + b.value, 0) / filtered.length).toFixed(1)) : undefined;
+  const bodyFatLow = bodyFatPct !== undefined ? Math.max(3, Number((bodyFatPct - 3.5).toFixed(1))) : undefined;
+  const bodyFatHigh = bodyFatPct !== undefined ? Math.min(65, Number((bodyFatPct + 3.5).toFixed(1))) : undefined;
+  const primaryMethod = filtered.length === 0 ? undefined : filtered.find((b) => b.method === "U.S. Navy")?.method ?? filtered[0].method;
+  const methodLabel = filtered.length > 1 ? `Média de ${filtered.map((b) => b.method).join(" + ")}` : primaryMethod;
+  const reference = filtered.length
+    ? filtered.map((b) => `${b.method}: ${b.value}% — ${b.reference}`).join(" | ")
+    : "Sem dados suficientes (precisa de IMC; cintura/pescoço para Navy).";
+
   const muscleMass = weight && bodyFatPct ? Number((weight * (1 - bodyFatPct / 100) * 0.72).toFixed(1)) : undefined;
-  const bmr = weight && measurements.height_cm ? Math.round(10 * weight + 6.25 * measurements.height_cm - 5 * 35 + 5) : undefined;
-  const waistRisk = waist && waist >= 88 ? "Atenção: cintura elevada" : "Dentro de uma faixa usual";
-  return { bmi, bmiClass, waistRisk, bodyFatEstimate: bodyFatPct ? `${bodyFatPct}% estimado` : "Estimativa visual conservadora", muscleMassEstimate: muscleMass ? `${muscleMass}kg estimados` : "Informe bioimpedância para refinar", abdominalFatEstimate: waistHip ? `RCQ ${waistHip} com distribuição ${waistHip >= 0.85 ? "central" : "periférica/equilibrada"}` : "Depende de cintura e quadril", tissueDistribution: "Estimativa por peso, cintura, quadril e proporções visuais; use bioimpedância para acompanhar evolução clínica.", bmr, summary: "Avaliação estimativa para apoio a médicos e nutricionistas, sem substituir consulta, exame físico ou laudo clínico." };
+  // Mifflin-St Jeor (1990), padrão clínico para TMB.
+  const bmr = weight && heightCm ? Math.round(10 * weight + 6.25 * heightCm - 5 * age + (sex === 1 ? 5 : -161)) : undefined;
+  const waistRisk = waist
+    ? (sex === 1 ? (waist >= 102 ? "Atenção: cintura ≥102cm (risco elevado, OMS)" : waist >= 94 ? "Cintura ≥94cm (risco aumentado, OMS)" : "Dentro da faixa usual")
+                 : (waist >= 88 ? "Atenção: cintura ≥88cm (risco elevado, OMS)" : waist >= 80 ? "Cintura ≥80cm (risco aumentado, OMS)" : "Dentro da faixa usual"))
+    : "Informe a cintura para avaliar risco";
+
+  return {
+    bmi,
+    bmiClass,
+    waistRisk,
+    bodyFatEstimate: bodyFatPct ? `${bodyFatPct}% (faixa ${bodyFatLow}–${bodyFatHigh}%)` : "Estimativa visual conservadora",
+    bodyFatPct,
+    bodyFatLow,
+    bodyFatHigh,
+    bodyFatMethod: methodLabel,
+    bodyFatReference: reference,
+    bodyFatBreakdown: filtered,
+    muscleMassEstimate: muscleMass ? `${muscleMass}kg estimados` : "Informe bioimpedância para refinar",
+    abdominalFatEstimate: waistHip ? `RCQ ${waistHip} (${waistHip >= (sex === 1 ? 0.9 : 0.85) ? "distribuição central, OMS" : "distribuição equilibrada"})` : "Depende de cintura e quadril",
+    tissueDistribution: filtered.length
+      ? `Estimativa cruzando ${filtered.map((b) => b.method).join(", ")} com IMC, cintura, quadril e proporções; bioimpedância/DEXA refina o resultado.`
+      : "Estimativa por peso, cintura, quadril e proporções visuais; use bioimpedância para acompanhar evolução clínica.",
+    bmr,
+    summary: "Avaliação estimativa para apoio a médicos e nutricionistas, sem substituir consulta, exame físico ou laudo.",
+  };
 };
 
 const mergeBioimpedanceFitness = (fitness: FitnessAssessment, bio: BioimpedanceData): FitnessAssessment => ({
   ...fitness,
-  bodyFatEstimate: bio.bodyFatPct ? `${bio.bodyFatPct}% informado por bioimpedância` : fitness.bodyFatEstimate,
+  bodyFatPct: bio.bodyFatPct ?? fitness.bodyFatPct,
+  bodyFatLow: bio.bodyFatPct ? Math.max(3, Number((bio.bodyFatPct - 1.5).toFixed(1))) : fitness.bodyFatLow,
+  bodyFatHigh: bio.bodyFatPct ? Math.min(65, Number((bio.bodyFatPct + 1.5).toFixed(1))) : fitness.bodyFatHigh,
+  bodyFatMethod: bio.bodyFatPct ? "Bioimpedância (informada pelo usuário)" : fitness.bodyFatMethod,
+  bodyFatReference: bio.bodyFatPct
+    ? `Valor de bioimpedância ${bio.source ? `(${bio.source})` : ""}. Bioimpedância tem erro típico ±2-3 p.p. e varia com hidratação; DEXA continua sendo padrão-ouro.`
+    : fitness.bodyFatReference,
+  bodyFatEstimate: bio.bodyFatPct
+    ? `${bio.bodyFatPct}% (bioimpedância)`
+    : fitness.bodyFatEstimate,
   muscleMassEstimate: bio.muscleMassKg ? `${bio.muscleMassKg}kg informados` : fitness.muscleMassEstimate,
   abdominalFatEstimate: bio.visceralFat ? `Gordura visceral ${bio.visceralFat}` : fitness.abdominalFatEstimate,
   bmr: bio.bmr ?? fitness.bmr,
@@ -397,6 +497,7 @@ const Index = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [gender, setGender] = useState("Feminino");
+  const [age, setAge] = useState<string>("");
   const [objective, setObjective] = useState("Ambos");
   const [productUrl, setProductUrl] = useState("");
   const [notes, setNotes] = useState("Comprar roupas online com menos troca");
@@ -419,7 +520,7 @@ const Index = () => {
     bmr: parseNumber(bioimpedance.bmr ?? ""),
     source: bioFileName ? `Arquivo temporário: ${bioFileName}` : undefined,
   }), [bioFileName, bioimpedance]);
-  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements), bioimpedanceData);
+  const fitness = mergeBioimpedanceFitness(analysis?.fitnessAssessment ?? calculateFallbackFitness(currentMeasurements, { gender, age: parseNumber(age) }), bioimpedanceData);
   const styles = analysis?.styleRecommendations?.length ? analysis.styleRecommendations : defaultStyles;
   const sizes = analysis?.sizeRecommendations ?? brandSizes;
   const purchaseRisks = analysis ? buildPurchaseRisks(analysis) : [];
@@ -502,7 +603,7 @@ const Index = () => {
     const numeric = parseNumber(value);
     if (!analysis || !numeric) return;
     const measurements = { ...analysis.measurements, [key]: numeric };
-    const recalculatedFitness = mergeBioimpedanceFitness(calculateFallbackFitness(measurements), bioimpedanceData);
+    const recalculatedFitness = mergeBioimpedanceFitness(calculateFallbackFitness(measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
     setAnalysis({ ...analysis, measurements, fitnessAssessment: recalculatedFitness });
   };
 
@@ -564,6 +665,7 @@ const Index = () => {
         heightCm: measurements.height_cm,
         weightKg: measurements.estimated_weight_kg,
         gender,
+        age: parseNumber(age),
         shoppingGoal: objective,
         productUrl: productUrl.trim() || undefined,
         manualMeasurements: measurements,
@@ -576,7 +678,14 @@ const Index = () => {
     if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
 
     const result = normalizeAnalysis(data);
-    result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements), bioimpedanceData);
+    result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
+    // Sempre cruzar com fórmulas locais como sanity-check, preservando valores vindos do backend.
+    const local = calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) });
+    result.fitnessAssessment = {
+      ...local,
+      ...result.fitnessAssessment,
+      bodyFatBreakdown: result.fitnessAssessment?.bodyFatBreakdown?.length ? result.fitnessAssessment.bodyFatBreakdown : local.bodyFatBreakdown,
+    };
     setManual((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.measurements).map(([key, value]) => [key, String(value)])) }));
     setAnalysis(result);
     setMode("results");
@@ -772,6 +881,10 @@ const Index = () => {
                   </div>
                 ))}
                 <div className="space-y-2">
+                  <Label htmlFor="age">Idade</Label>
+                  <Input id="age" inputMode="numeric" value={age} onChange={(event) => setAge(event.target.value)} placeholder="32" />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="gender">Gênero</Label>
                   <select id="gender" value={gender} onChange={(event) => setGender(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                     <option>Feminino</option><option>Masculino</option><option>Outro</option>
@@ -962,7 +1075,55 @@ const Index = () => {
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
-              <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><HeartPulse className="mb-4 size-8 text-primary" /><p className="text-sm text-muted-foreground">IMC e TMB</p><div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div><p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p><p className="mt-2 text-sm text-muted-foreground">TMB: {fitness.bmr ? `${fitness.bmr} kcal/dia` : "—"}</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><Activity className="mb-4 size-8 text-accent" /><h3 className="font-display text-2xl font-semibold">Tecidos corporais</h3><div className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground"><p>Gordura: {fitness.bodyFatEstimate}</p><p>Massa muscular: {fitness.muscleMassEstimate ?? "—"}</p><p>Abdominal: {fitness.abdominalFatEstimate ?? fitness.waistRisk}</p></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><FileText className="mb-4 size-8 text-primary" /><h3 className="font-display text-2xl font-semibold">Resumo clínico</h3><p className="mt-3 leading-7 text-muted-foreground">{fitness.tissueDistribution ?? fitness.summary}</p><p className="mt-4 rounded-2xl bg-muted p-3 text-sm">Avaliação estimativa para apoio médico/nutricional; não substitui consulta, exame físico ou laudo.</p><Button type="button" variant="outline" className="mt-4 w-full">Compartilhe com seu nutricionista</Button></div></TabsContent>
+              <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <HeartPulse className="mb-4 size-8 text-primary" />
+                  <p className="text-sm text-muted-foreground">IMC e TMB</p>
+                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div>
+                  <p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p>
+                  <p className="font-bold">{fitness.bmiClass}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">TMB (Mifflin-St Jeor): {fitness.bmr ? `${fitness.bmr} kcal/dia` : "—"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{fitness.waistRisk}</p>
+                </div>
+                <div className="rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <Activity className="mb-4 size-8 text-accent" />
+                  <h3 className="font-display text-2xl font-semibold">% Gordura corporal</h3>
+                  <p className="mt-3 font-display text-4xl font-semibold">{fitness.bodyFatPct ? `${fitness.bodyFatPct}%` : "—"}</p>
+                  {fitness.bodyFatLow && fitness.bodyFatHigh && (
+                    <p className="text-sm text-muted-foreground">Faixa provável: {fitness.bodyFatLow}–{fitness.bodyFatHigh}%</p>
+                  )}
+                  {fitness.bodyFatMethod && (
+                    <p className="mt-2 text-sm"><span className="font-bold">Método:</span> {fitness.bodyFatMethod}</p>
+                  )}
+                  {fitness.bodyFatBreakdown && fitness.bodyFatBreakdown.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {fitness.bodyFatBreakdown.map((b) => (
+                        <li key={b.method} className="flex items-start gap-2">
+                          <span className="mt-1 size-1.5 rounded-full bg-accent" />
+                          <span><span className="font-bold text-foreground">{b.method}: {b.value}%</span> — {b.reference}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-3 text-xs leading-5 text-muted-foreground">Massa muscular estimada: {fitness.muscleMassEstimate ?? "—"} · {fitness.abdominalFatEstimate ?? ""}</p>
+                </div>
+                <div className="rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <FileText className="mb-4 size-8 text-primary" />
+                  <h3 className="font-display text-2xl font-semibold">Como chegamos aqui</h3>
+                  <p className="mt-3 leading-7 text-muted-foreground text-sm">{fitness.bodyFatReference ?? fitness.tissueDistribution ?? fitness.summary}</p>
+                  <div className="mt-3 rounded-2xl bg-muted p-3 text-xs leading-5 text-muted-foreground">
+                    <p className="font-bold text-foreground">Referências usadas</p>
+                    <ul className="mt-1 space-y-1">
+                      <li>• <span className="font-bold">CUN-BAE</span> — Gómez-Ambrosi et al., Diabetes Care 2012 (validado vs. DEXA, R²≈0,86, EE≈3-4 p.p.).</li>
+                      <li>• <span className="font-bold">Deurenberg</span> — Br J Nutr 1991, "BMI as a measure of body fatness" (EE≈4 p.p.).</li>
+                      <li>• <span className="font-bold">U.S. Navy</span> — Hodgdon & Beckett, Naval Health Research Center 1984 (cintura, pescoço, quadril; EE≈3 p.p.).</li>
+                      <li>• <span className="font-bold">Bioimpedância</span> — quando informada, prevalece sobre fórmulas (EE≈2-3 p.p., depende de hidratação).</li>
+                      <li>• <span className="font-bold">DEXA</span> — padrão-ouro recomendado para diagnóstico clínico.</li>
+                    </ul>
+                  </div>
+                  <p className="mt-3 rounded-2xl bg-muted p-3 text-xs">Estimativa para apoio médico/nutricional; não substitui consulta, exame físico ou laudo.</p>
+                </div>
+              </TabsContent>
 
               <TabsContent value="history" className="grid gap-4 lg:grid-cols-[1fr_0.8fr]"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><History className="size-5 text-primary" /> Evolução corporal</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={history}><XAxis dataKey="date" /><YAxis /><Tooltip /><Line type="monotone" dataKey="waist" stroke="hsl(var(--primary))" strokeWidth={3} /><Line type="monotone" dataKey="hip" stroke="hsl(var(--accent))" strokeWidth={3} /></LineChart></ResponsiveContainer></div></div><div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="font-display text-2xl font-semibold">Perfil e monetização</h3>{["Free: 1 análise/mês", "Premium R$19,90/mês: ilimitado + PDF + marcas", "B2B API key: página placeholder"].map((item) => <p key={item} className="flex gap-2 rounded-2xl bg-muted p-3"><KeyRound className="mt-0.5 size-4 shrink-0 text-primary" />{item}</p>)}<p className="flex gap-2 rounded-2xl bg-muted p-3"><Lock className="mt-0.5 size-4 shrink-0 text-primary" />Histórico salvo para usuários autenticados.</p></div></TabsContent>
             </Tabs>
