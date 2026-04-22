@@ -564,13 +564,14 @@ function ColorimetryTab({ analyses, loading }: { analyses: ColorAnalysisRow[]; l
 // ============================================================================
 // LOJAS + WISHLIST
 function StoresTab({
-  stores, products, userId, dominantSeason,
+  stores, products, userId, dominantSeason, latestMeasurements,
   onAddStore, onAddProduct, onDeleteStore, onDeleteProduct,
 }: {
   stores: FavoriteStore[];
   products: FavoriteProduct[];
   userId: string;
   dominantSeason: string | null;
+  latestMeasurements: UserMeasurements;
   onAddStore: (d: { name: string; url: string | null; notes: string | null; seasons: string[]; tags: string[] }) => Promise<void>;
   onAddProduct: (d: { name: string; url: string | null; image_url: string | null; price: number | null; season: string | null; notes: string | null; store_id: string | null }) => Promise<void>;
   onDeleteStore: (id: string) => Promise<void>;
