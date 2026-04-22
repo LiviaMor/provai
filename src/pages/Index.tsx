@@ -713,6 +713,40 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
 
+  const downloadTryonImage = async (src: string) => {
+    try {
+      const filename = `provador-encaixe-${Date.now()}.png`;
+      let blob: Blob;
+      if (src.startsWith("data:")) {
+        const [meta, b64] = src.split(",");
+        const mime = meta.match(/data:(.*?);/)?.[1] ?? "image/png";
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: mime });
+      } else {
+        const res = await fetch(src);
+        blob = await res.blob();
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      console.error("download tryon failed", err);
+      try {
+        window.open(src, "_blank");
+        toast.message("Toque e segure na imagem para salvar.");
+      } catch {
+        toast.error("Não foi possível baixar a imagem.");
+      }
+    }
+  };
+
   const runTryon = async () => {
     if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
     if (!garmentPreview && !productUrl.trim()) return toast.error("Envie a foto da roupa ou cole o link do produto.");
@@ -976,7 +1010,7 @@ const Index = () => {
                       {isTryingOn && <div className="body-scan-loader scan-grid absolute inset-0" />}
                       {tryon?.tryonImage ? <img src={tryon.tryonImage} alt="Provador virtual gerado por IA" className="h-full w-full object-cover" /> : !isTryingOn && <span className="grid justify-items-center gap-3 p-6 text-center text-sm text-muted-foreground"><Sparkles className="size-8 text-primary" /> Seu provador virtual aparecerá aqui</span>}
                     </div>
-                    {tryon?.tryonImage && <a href={tryon.tryonImage} download="provador-encaixe.png" className="mt-3 flex items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</a>}
+                    {tryon?.tryonImage && <button type="button" onClick={() => downloadTryonImage(tryon.tryonImage!)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</button>}
                   </div>
                   {tryon?.advice && (
                     <div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel">
