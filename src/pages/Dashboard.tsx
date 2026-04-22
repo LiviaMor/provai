@@ -1030,6 +1030,35 @@ function ProductCard({
                 ))}
               </ul>
             )}
+            {itemHemOptions && (
+              <div className="pt-1.5 border-t border-border/60 flex items-center gap-1.5">
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground shrink-0">Barra</span>
+                <Select
+                  value={effectivePref}
+                  onValueChange={(v) => setHemOverride(v as HemPreference)}
+                >
+                  <SelectTrigger className="h-6 text-[10px] px-1.5 py-0 border-border/60 bg-background/60">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {itemHemOptions.map((k) => (
+                      <SelectItem key={k} value={k} className="text-[11px]">
+                        {HEM_PREFERENCE_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {hemOverride && (
+                  <button
+                    type="button"
+                    onClick={() => setHemOverride(null)}
+                    className="text-[9px] text-muted-foreground hover:text-foreground underline shrink-0"
+                  >
+                    usar padrão
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : !hasMeasurements ? (
           <p className="mt-2.5 text-[10px] text-muted-foreground italic">
