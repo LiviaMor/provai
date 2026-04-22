@@ -307,7 +307,15 @@ const normalizeAnalysis = (raw: unknown): Analysis => {
         bmi: data.body_analysis?.bmi,
         bmiClass: data.body_analysis?.bmi_category,
         waistRisk: `Risco abdominal: ${data.body_analysis?.abdominal_risk ?? "em avaliação"}. Relação cintura/quadril: ${data.body_analysis?.waist_to_hip_ratio ?? "—"}`,
-        bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct ? `${data.body_analysis.body_fat_estimate_pct}%` : "Estimativa visual conservadora",
+        bodyFatEstimate: data.body_analysis?.body_fat_estimate_pct
+          ? `${data.body_analysis.body_fat_estimate_pct}%${data.body_analysis?.body_fat_range_low && data.body_analysis?.body_fat_range_high ? ` (faixa ${data.body_analysis.body_fat_range_low}–${data.body_analysis.body_fat_range_high}%)` : ""}`
+          : "Estimativa visual conservadora",
+        bodyFatPct: typeof data.body_analysis?.body_fat_estimate_pct === "number" ? data.body_analysis.body_fat_estimate_pct : undefined,
+        bodyFatLow: typeof data.body_analysis?.body_fat_range_low === "number" ? data.body_analysis.body_fat_range_low : undefined,
+        bodyFatHigh: typeof data.body_analysis?.body_fat_range_high === "number" ? data.body_analysis.body_fat_range_high : undefined,
+        bodyFatMethod: data.body_analysis?.body_fat_method,
+        bodyFatReference: data.body_analysis?.body_fat_methodology_note,
+        bodyFatBreakdown: Array.isArray(data.body_analysis?.body_fat_breakdown) ? data.body_analysis.body_fat_breakdown.filter((b: any) => b && typeof b.value === "number" && b.method) : undefined,
         muscleMassEstimate: data.body_analysis?.muscle_mass_kg ? `${data.body_analysis.muscle_mass_kg}kg` : undefined,
         abdominalFatEstimate: data.body_analysis?.visceral_fat ? `Gordura visceral ${data.body_analysis.visceral_fat}` : undefined,
         tissueDistribution: data.body_analysis?.tissue_distribution,
