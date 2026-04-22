@@ -657,6 +657,7 @@ const Index = () => {
         heightCm: measurements.height_cm,
         weightKg: measurements.estimated_weight_kg,
         gender,
+        age: parseNumber(age),
         shoppingGoal: objective,
         productUrl: productUrl.trim() || undefined,
         manualMeasurements: measurements,
@@ -871,6 +872,10 @@ const Index = () => {
                     <Input id={field.key} inputMode="decimal" value={manual[field.key] ?? ""} onChange={(event) => setManual((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} />
                   </div>
                 ))}
+                <div className="space-y-2">
+                  <Label htmlFor="age">Idade</Label>
+                  <Input id="age" inputMode="numeric" value={age} onChange={(event) => setAge(event.target.value)} placeholder="32" />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gênero</Label>
                   <select id="gender" value={gender} onChange={(event) => setGender(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
