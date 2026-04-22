@@ -855,12 +855,14 @@ function StoresTab({
 }
 
 function ProductCard({
-  product: p, stores, highlight, measurements, onDelete,
+  product: p, stores, highlight, measurements, dominantSeason, paletteHints, onDelete,
 }: {
   product: FavoriteProduct;
   stores: FavoriteStore[];
   highlight?: boolean;
   measurements: UserMeasurements;
+  dominantSeason: string | null;
+  paletteHints: string[];
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
@@ -869,6 +871,13 @@ function ProductCard({
     [p.name, p.notes, measurements],
   );
   const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
+  const score = useMemo(() => calcCompatScore({
+    itemSeasons: p.season ? [p.season] : [],
+    itemTags: store?.tags ?? [],
+    itemText: `${p.name} ${p.notes ?? ""}`,
+    dominantSeason,
+    paletteHints,
+  }), [p.name, p.notes, p.season, store, dominantSeason, paletteHints]);
 
   return (
     <Card className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden ${highlight ? "ring-1 ring-accent/40" : ""}`}>
