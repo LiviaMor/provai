@@ -6,7 +6,7 @@ import {
   Plus, Trash2, ExternalLink, Store, ShoppingBag, Calendar, Loader2,
   Camera, ArrowRight, Search, Filter, Check,
 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Area, AreaChart,
 } from "recharts";
-import { suggestSize, categoryLabel, HEM_PREFERENCE_LABELS, type UserMeasurements, type SizeSuggestion, type HemPreference } from "@/lib/sizing";
+import { suggestSize, categoryLabel, HEM_PREFERENCE_LABELS, HEM_OPTIONS_BY_CATEGORY, type UserMeasurements, type SizeSuggestion, type HemPreference } from "@/lib/sizing";
 import { calcCompatScore, scoreColorClass, type ScoreResult } from "@/lib/compatScore";
 import { Ruler } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -733,9 +733,19 @@ function StoresTab({
                 <SelectValue placeholder="Altura da barra" />
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
-                {(Object.keys(HEM_PREFERENCE_LABELS) as HemPreference[]).map((k) => (
-                  <SelectItem key={k} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectLabel>Calças & saias</SelectLabel>
+                  {HEM_OPTIONS_BY_CATEGORY.bottom.map((k) => (
+                    <SelectItem key={`b-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Vestidos & macacões</SelectLabel>
+                  {HEM_OPTIONS_BY_CATEGORY.dress.map((k) => (
+                    <SelectItem key={`d-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
