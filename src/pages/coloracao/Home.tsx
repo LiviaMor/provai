@@ -35,6 +35,7 @@ export default function Home() {
           <a href="#como" className="hover:text-foreground">Como funciona</a>
           <a href="#beneficios" className="hover:text-foreground">Benefícios</a>
           <a href="#depoimentos" className="hover:text-foreground">Depoimentos</a>
+          <Link to="/painel" className="hover:text-foreground inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Meu painel</Link>
         </div>
       </nav>
 

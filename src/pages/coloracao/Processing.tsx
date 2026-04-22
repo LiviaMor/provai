@@ -46,6 +46,21 @@ export default function Processing() {
         }
         setProgress(100);
         sessionStorage.setItem("coloracao_result", JSON.stringify({ analysis: data.analysis, images: photos }));
+        // Salva no histórico se usuário estiver logado
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from("color_analyses").insert({
+              user_id: user.id,
+              title: `Coloração ${data.analysis?.season ?? ""}`.trim(),
+              season: data.analysis?.season ?? null,
+              analysis: data.analysis,
+              reference_photo: photos[0] ?? null,
+            });
+          }
+        } catch (err) {
+          console.warn("Falha ao salvar histórico de coloração", err);
+        }
         setTimeout(() => navigate("/coloracao/relatorio"), 600);
       } catch (e: unknown) {
         clearInterval(interval);

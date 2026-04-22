@@ -68,6 +68,128 @@ export type Database = {
         }
         Relationships: []
       }
+      color_analyses: {
+        Row: {
+          analysis: Json
+          created_at: string
+          id: string
+          notes: string | null
+          reference_photo: string | null
+          season: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reference_photo?: string | null
+          season?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reference_photo?: string | null
+          season?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      favorite_products: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          name: string
+          notes: string | null
+          price: number | null
+          season: string | null
+          store_id: string | null
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          notes?: string | null
+          price?: number | null
+          season?: string | null
+          store_id?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          notes?: string | null
+          price?: number | null
+          season?: string | null
+          store_id?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "favorite_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      favorite_stores: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          seasons: string[] | null
+          tags: string[] | null
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          seasons?: string[] | null
+          tags?: string[] | null
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          seasons?: string[] | null
+          tags?: string[] | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
