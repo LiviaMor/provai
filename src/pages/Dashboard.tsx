@@ -727,6 +727,17 @@ function StoresTab({
                 <SelectItem value="price-desc">Maior preço</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={hemPref} onValueChange={(v) => setHemPref(v as HemPreference)}>
+              <SelectTrigger className="w-[200px]">
+                <Ruler className="h-3.5 w-3.5 mr-1" />
+                <SelectValue placeholder="Altura da barra" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {(Object.keys(HEM_PREFERENCE_LABELS) as HemPreference[]).map((k) => (
+                  <SelectItem key={k} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {dominantSeason && (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
