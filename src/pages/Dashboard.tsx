@@ -21,7 +21,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Area, AreaChart,
 } from "recharts";
-import { suggestSize, categoryLabel, HEM_PREFERENCE_LABELS, HEM_OPTIONS_BY_CATEGORY, type UserMeasurements, type SizeSuggestion, type HemPreference } from "@/lib/sizing";
+import { suggestSize, categoryLabel, detectCategory, HEM_PREFERENCE_LABELS, HEM_OPTIONS_BY_CATEGORY, resolveHemPreference, type UserMeasurements, type SizeSuggestion, type HemPreference, type GarmentCategory } from "@/lib/sizing";
 import { calcCompatScore, scoreColorClass, type ScoreResult } from "@/lib/compatScore";
 import { Ruler } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
