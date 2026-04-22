@@ -873,7 +873,7 @@ function StoresTab({
 }
 
 function ProductCard({
-  product: p, stores, highlight, measurements, dominantSeason, paletteHints, onDelete,
+  product: p, stores, highlight, measurements, dominantSeason, paletteHints, hemPref, onDelete,
 }: {
   product: FavoriteProduct;
   stores: FavoriteStore[];
@@ -881,12 +881,13 @@ function ProductCard({
   measurements: UserMeasurements;
   dominantSeason: string | null;
   paletteHints: string[];
+  hemPref: HemPreference;
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
   const sizing: SizeSuggestion | null = useMemo(
-    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements),
-    [p.name, p.notes, measurements],
+    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements, hemPref),
+    [p.name, p.notes, measurements, hemPref],
   );
   const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
   const score = useMemo(() => calcCompatScore({
