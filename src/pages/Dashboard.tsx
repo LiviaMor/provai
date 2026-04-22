@@ -747,16 +747,38 @@ function StoresTab({
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
                 <SelectGroup>
-                  <SelectLabel>Calças & saias</SelectLabel>
+                  <SelectLabel className="flex items-center justify-between gap-2">
+                    <span>Calças & saias</span>
+                    {!visibleCategories.has("bottom") && (
+                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">sem itens</span>
+                    )}
+                  </SelectLabel>
                   {HEM_OPTIONS_BY_CATEGORY.bottom.map((k) => (
-                    <SelectItem key={`b-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                    <SelectItem
+                      key={`b-${k}`}
+                      value={k}
+                      disabled={!hemOptionApplies(k) && !HEM_OPTIONS_BY_CATEGORY.dress.includes(k)}
+                    >
+                      {HEM_PREFERENCE_LABELS[k]}
+                    </SelectItem>
                   ))}
                 </SelectGroup>
                 <SelectSeparator />
                 <SelectGroup>
-                  <SelectLabel>Vestidos & macacões</SelectLabel>
+                  <SelectLabel className="flex items-center justify-between gap-2">
+                    <span>Vestidos & macacões</span>
+                    {!visibleCategories.has("dress") && (
+                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">sem itens</span>
+                    )}
+                  </SelectLabel>
                   {HEM_OPTIONS_BY_CATEGORY.dress.map((k) => (
-                    <SelectItem key={`d-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                    <SelectItem
+                      key={`d-${k}`}
+                      value={k}
+                      disabled={!hemOptionApplies(k) && !HEM_OPTIONS_BY_CATEGORY.bottom.includes(k)}
+                    >
+                      {HEM_PREFERENCE_LABELS[k]}
+                    </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
