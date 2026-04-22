@@ -21,7 +21,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Area, AreaChart,
 } from "recharts";
-import { suggestSize, categoryLabel, HEM_PREFERENCE_LABELS, HEM_OPTIONS_BY_CATEGORY, type UserMeasurements, type SizeSuggestion, type HemPreference } from "@/lib/sizing";
+import { suggestSize, categoryLabel, detectCategory, HEM_PREFERENCE_LABELS, HEM_OPTIONS_BY_CATEGORY, resolveHemPreference, type UserMeasurements, type SizeSuggestion, type HemPreference, type GarmentCategory } from "@/lib/sizing";
 import { calcCompatScore, scoreColorClass, type ScoreResult } from "@/lib/compatScore";
 import { Ruler } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -683,6 +683,19 @@ function StoresTab({
     return { compat, others };
   }, [filteredProducts, dominantTokens]);
 
+  // Categorias detectadas nos produtos visíveis — usado para desabilitar
+  // opções de barra que não se aplicam a nenhum item da lista atual.
+  const visibleCategories = useMemo(() => {
+    const set = new Set<GarmentCategory>();
+    filteredProducts.forEach((p) => set.add(detectCategory(`${p.name} ${p.notes ?? ""}`)));
+    return set;
+  }, [filteredProducts]);
+  const hemOptionApplies = (opt: HemPreference): boolean => {
+    const inBottom = HEM_OPTIONS_BY_CATEGORY.bottom.includes(opt);
+    const inDress = HEM_OPTIONS_BY_CATEGORY.dress.includes(opt);
+    return (inBottom && visibleCategories.has("bottom")) || (inDress && visibleCategories.has("dress"));
+  };
+
   const compatStoresCount = stores.filter((s) => (s.seasons ?? []).some((x) => matchesDominant(x))).length;
   const compatProductsCount = products.filter((p) => matchesDominant(p.season)).length;
 
@@ -734,16 +747,38 @@ function StoresTab({
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
                 <SelectGroup>
-                  <SelectLabel>Calças & saias</SelectLabel>
+                  <SelectLabel className="flex items-center justify-between gap-2">
+                    <span>Calças & saias</span>
+                    {!visibleCategories.has("bottom") && (
+                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">sem itens</span>
+                    )}
+                  </SelectLabel>
                   {HEM_OPTIONS_BY_CATEGORY.bottom.map((k) => (
-                    <SelectItem key={`b-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                    <SelectItem
+                      key={`b-${k}`}
+                      value={k}
+                      disabled={!hemOptionApplies(k) && !HEM_OPTIONS_BY_CATEGORY.dress.includes(k)}
+                    >
+                      {HEM_PREFERENCE_LABELS[k]}
+                    </SelectItem>
                   ))}
                 </SelectGroup>
                 <SelectSeparator />
                 <SelectGroup>
-                  <SelectLabel>Vestidos & macacões</SelectLabel>
+                  <SelectLabel className="flex items-center justify-between gap-2">
+                    <span>Vestidos & macacões</span>
+                    {!visibleCategories.has("dress") && (
+                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">sem itens</span>
+                    )}
+                  </SelectLabel>
                   {HEM_OPTIONS_BY_CATEGORY.dress.map((k) => (
-                    <SelectItem key={`d-${k}`} value={k}>{HEM_PREFERENCE_LABELS[k]}</SelectItem>
+                    <SelectItem
+                      key={`d-${k}`}
+                      value={k}
+                      disabled={!hemOptionApplies(k) && !HEM_OPTIONS_BY_CATEGORY.bottom.includes(k)}
+                    >
+                      {HEM_PREFERENCE_LABELS[k]}
+                    </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
@@ -895,18 +930,33 @@ function ProductCard({
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
+  const productText = `${p.name} ${p.notes ?? ""}`;
+  const itemCategory = useMemo(() => detectCategory(productText), [productText]);
+  const [hemOverride, setHemOverride] = useState<HemPreference | null>(null);
+  const effectivePref = useMemo(
+    () => resolveHemPreference(itemCategory, hemOverride ?? hemPref),
+    [itemCategory, hemOverride, hemPref],
+  );
+  // Reseta override se o global mudar para um valor já aplicável (alinha sem surpresa)
+  useEffect(() => { setHemOverride(null); }, [hemPref]);
+
   const sizing: SizeSuggestion | null = useMemo(
-    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements, hemPref),
-    [p.name, p.notes, measurements, hemPref],
+    () => suggestSize(productText, measurements, effectivePref),
+    [productText, measurements, effectivePref],
   );
   const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
   const score = useMemo(() => calcCompatScore({
     itemSeasons: p.season ? [p.season] : [],
     itemTags: store?.tags ?? [],
-    itemText: `${p.name} ${p.notes ?? ""}`,
+    itemText: productText,
     dominantSeason,
     paletteHints,
-  }), [p.name, p.notes, p.season, store, dominantSeason, paletteHints]);
+  }), [productText, p.season, store, dominantSeason, paletteHints]);
+
+  const itemHemOptions: HemPreference[] | null =
+    itemCategory === "bottom" ? HEM_OPTIONS_BY_CATEGORY.bottom :
+    itemCategory === "dress" ? HEM_OPTIONS_BY_CATEGORY.dress :
+    null;
 
   return (
     <Card className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden ${highlight ? "ring-1 ring-accent/40" : ""}`}>
@@ -979,6 +1029,35 @@ function ProductCard({
                   <li key={i}>• {n}</li>
                 ))}
               </ul>
+            )}
+            {itemHemOptions && (
+              <div className="pt-1.5 border-t border-border/60 flex items-center gap-1.5">
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground shrink-0">Barra</span>
+                <Select
+                  value={effectivePref}
+                  onValueChange={(v) => setHemOverride(v as HemPreference)}
+                >
+                  <SelectTrigger className="h-6 text-[10px] px-1.5 py-0 border-border/60 bg-background/60">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {itemHemOptions.map((k) => (
+                      <SelectItem key={k} value={k} className="text-[11px]">
+                        {HEM_PREFERENCE_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {hemOverride && (
+                  <button
+                    type="button"
+                    onClick={() => setHemOverride(null)}
+                    className="text-[9px] text-muted-foreground hover:text-foreground underline shrink-0"
+                  >
+                    usar padrão
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ) : !hasMeasurements ? (
