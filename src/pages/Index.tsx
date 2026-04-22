@@ -60,6 +60,12 @@ type FitnessAssessment = {
   bmiClass?: string;
   waistRisk?: string;
   bodyFatEstimate?: string;
+  bodyFatPct?: number;
+  bodyFatLow?: number;
+  bodyFatHigh?: number;
+  bodyFatMethod?: string;
+  bodyFatReference?: string;
+  bodyFatBreakdown?: Array<{ method: string; value: number; reference: string }>;
   muscleMassEstimate?: string;
   abdominalFatEstimate?: string;
   tissueDistribution?: string;
