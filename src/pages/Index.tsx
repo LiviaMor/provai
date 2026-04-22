@@ -1075,7 +1075,55 @@ const Index = () => {
 
               <TabsContent value="style" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{styles.map((item) => <article key={item.title} className="rounded-2xl border bg-card/80 p-5 shadow-panel"><div className="mb-4 text-4xl">{item.emoji ?? "✨"}</div><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{item.tag}</span><h3 className="mt-4 font-display text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.tip}</p>{item.avoid && <p className="mt-3 text-sm font-bold">Evite: {item.avoid}</p>}</article>)}</TabsContent>
 
-              <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><HeartPulse className="mb-4 size-8 text-primary" /><p className="text-sm text-muted-foreground">IMC e TMB</p><div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div><p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p><p className="font-bold">{fitness.bmiClass}</p><p className="mt-2 text-sm text-muted-foreground">TMB: {fitness.bmr ? `${fitness.bmr} kcal/dia` : "—"}</p></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><Activity className="mb-4 size-8 text-accent" /><h3 className="font-display text-2xl font-semibold">Tecidos corporais</h3><div className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground"><p>Gordura: {fitness.bodyFatEstimate}</p><p>Massa muscular: {fitness.muscleMassEstimate ?? "—"}</p><p>Abdominal: {fitness.abdominalFatEstimate ?? fitness.waistRisk}</p></div></div><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><FileText className="mb-4 size-8 text-primary" /><h3 className="font-display text-2xl font-semibold">Resumo clínico</h3><p className="mt-3 leading-7 text-muted-foreground">{fitness.tissueDistribution ?? fitness.summary}</p><p className="mt-4 rounded-2xl bg-muted p-3 text-sm">Avaliação estimativa para apoio médico/nutricional; não substitui consulta, exame físico ou laudo.</p><Button type="button" variant="outline" className="mt-4 w-full">Compartilhe com seu nutricionista</Button></div></TabsContent>
+              <TabsContent value="fitness" className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <HeartPulse className="mb-4 size-8 text-primary" />
+                  <p className="text-sm text-muted-foreground">IMC e TMB</p>
+                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-primary" /></div>
+                  <p className="mt-4 font-display text-3xl font-semibold">{fitness.bmi ?? "—"}</p>
+                  <p className="font-bold">{fitness.bmiClass}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">TMB (Mifflin-St Jeor): {fitness.bmr ? `${fitness.bmr} kcal/dia` : "—"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{fitness.waistRisk}</p>
+                </div>
+                <div className="rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <Activity className="mb-4 size-8 text-accent" />
+                  <h3 className="font-display text-2xl font-semibold">% Gordura corporal</h3>
+                  <p className="mt-3 font-display text-4xl font-semibold">{fitness.bodyFatPct ? `${fitness.bodyFatPct}%` : "—"}</p>
+                  {fitness.bodyFatLow && fitness.bodyFatHigh && (
+                    <p className="text-sm text-muted-foreground">Faixa provável: {fitness.bodyFatLow}–{fitness.bodyFatHigh}%</p>
+                  )}
+                  {fitness.bodyFatMethod && (
+                    <p className="mt-2 text-sm"><span className="font-bold">Método:</span> {fitness.bodyFatMethod}</p>
+                  )}
+                  {fitness.bodyFatBreakdown && fitness.bodyFatBreakdown.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {fitness.bodyFatBreakdown.map((b) => (
+                        <li key={b.method} className="flex items-start gap-2">
+                          <span className="mt-1 size-1.5 rounded-full bg-accent" />
+                          <span><span className="font-bold text-foreground">{b.method}: {b.value}%</span> — {b.reference}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-3 text-xs leading-5 text-muted-foreground">Massa muscular estimada: {fitness.muscleMassEstimate ?? "—"} · {fitness.abdominalFatEstimate ?? ""}</p>
+                </div>
+                <div className="rounded-2xl border bg-card/80 p-5 shadow-panel">
+                  <FileText className="mb-4 size-8 text-primary" />
+                  <h3 className="font-display text-2xl font-semibold">Como chegamos aqui</h3>
+                  <p className="mt-3 leading-7 text-muted-foreground text-sm">{fitness.bodyFatReference ?? fitness.tissueDistribution ?? fitness.summary}</p>
+                  <div className="mt-3 rounded-2xl bg-muted p-3 text-xs leading-5 text-muted-foreground">
+                    <p className="font-bold text-foreground">Referências usadas</p>
+                    <ul className="mt-1 space-y-1">
+                      <li>• <span className="font-bold">CUN-BAE</span> — Gómez-Ambrosi et al., Diabetes Care 2012 (validado vs. DEXA, R²≈0,86, EE≈3-4 p.p.).</li>
+                      <li>• <span className="font-bold">Deurenberg</span> — Br J Nutr 1991, "BMI as a measure of body fatness" (EE≈4 p.p.).</li>
+                      <li>• <span className="font-bold">U.S. Navy</span> — Hodgdon & Beckett, Naval Health Research Center 1984 (cintura, pescoço, quadril; EE≈3 p.p.).</li>
+                      <li>• <span className="font-bold">Bioimpedância</span> — quando informada, prevalece sobre fórmulas (EE≈2-3 p.p., depende de hidratação).</li>
+                      <li>• <span className="font-bold">DEXA</span> — padrão-ouro recomendado para diagnóstico clínico.</li>
+                    </ul>
+                  </div>
+                  <p className="mt-3 rounded-2xl bg-muted p-3 text-xs">Estimativa para apoio médico/nutricional; não substitui consulta, exame físico ou laudo.</p>
+                </div>
+              </TabsContent>
 
               <TabsContent value="history" className="grid gap-4 lg:grid-cols-[1fr_0.8fr]"><div className="rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><History className="size-5 text-primary" /> Evolução corporal</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={history}><XAxis dataKey="date" /><YAxis /><Tooltip /><Line type="monotone" dataKey="waist" stroke="hsl(var(--primary))" strokeWidth={3} /><Line type="monotone" dataKey="hip" stroke="hsl(var(--accent))" strokeWidth={3} /></LineChart></ResponsiveContainer></div></div><div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel"><h3 className="font-display text-2xl font-semibold">Perfil e monetização</h3>{["Free: 1 análise/mês", "Premium R$19,90/mês: ilimitado + PDF + marcas", "B2B API key: página placeholder"].map((item) => <p key={item} className="flex gap-2 rounded-2xl bg-muted p-3"><KeyRound className="mt-0.5 size-4 shrink-0 text-primary" />{item}</p>)}<p className="flex gap-2 rounded-2xl bg-muted p-3"><Lock className="mt-0.5 size-4 shrink-0 text-primary" />Histórico salvo para usuários autenticados.</p></div></TabsContent>
             </Tabs>
