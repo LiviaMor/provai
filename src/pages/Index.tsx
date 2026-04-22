@@ -713,6 +713,40 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
 
+  const downloadTryonImage = async (src: string) => {
+    try {
+      const filename = `provador-encaixe-${Date.now()}.png`;
+      let blob: Blob;
+      if (src.startsWith("data:")) {
+        const [meta, b64] = src.split(",");
+        const mime = meta.match(/data:(.*?);/)?.[1] ?? "image/png";
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: mime });
+      } else {
+        const res = await fetch(src);
+        blob = await res.blob();
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      console.error("download tryon failed", err);
+      try {
+        window.open(src, "_blank");
+        toast.message("Toque e segure na imagem para salvar.");
+      } catch {
+        toast.error("Não foi possível baixar a imagem.");
+      }
+    }
+  };
+
   const runTryon = async () => {
     if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
     if (!garmentPreview && !productUrl.trim()) return toast.error("Envie a foto da roupa ou cole o link do produto.");
