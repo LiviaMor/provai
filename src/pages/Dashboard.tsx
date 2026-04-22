@@ -597,6 +597,13 @@ function StoresTab({
   const [query, setQuery] = useState("");
   const [seasonFilter, setSeasonFilter] = useState<string>("compat"); // compat | all | <season>
   const [sortBy, setSortBy] = useState<string>("compat"); // compat | recent | price-asc | price-desc
+  const [hemPref, setHemPref] = useState<HemPreference>(() => {
+    if (typeof window === "undefined") return "ankle";
+    return (localStorage.getItem("hem_pref") as HemPreference) || "ankle";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("hem_pref", hemPref);
+  }, [hemPref]);
 
   // Conjunto de estações disponíveis (vindas das lojas + produtos)
   const availableSeasons = useMemo(() => {
