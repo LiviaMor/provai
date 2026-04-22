@@ -21,6 +21,8 @@ import type { User } from "@supabase/supabase-js";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Area, AreaChart,
 } from "recharts";
+import { suggestSize, categoryLabel, type UserMeasurements, type SizeSuggestion } from "@/lib/sizing";
+import { Ruler } from "lucide-react";
 
 // ---------- Tipos enxutos das tabelas ----------
 type BodyAssessment = {
