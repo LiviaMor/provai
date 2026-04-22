@@ -26,6 +26,7 @@ import {
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
