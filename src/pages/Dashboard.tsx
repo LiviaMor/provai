@@ -930,18 +930,33 @@ function ProductCard({
   onDelete: (id: string) => Promise<void>;
 }) {
   const store = stores.find((s) => s.id === p.store_id);
+  const productText = `${p.name} ${p.notes ?? ""}`;
+  const itemCategory = useMemo(() => detectCategory(productText), [productText]);
+  const [hemOverride, setHemOverride] = useState<HemPreference | null>(null);
+  const effectivePref = useMemo(
+    () => resolveHemPreference(itemCategory, hemOverride ?? hemPref),
+    [itemCategory, hemOverride, hemPref],
+  );
+  // Reseta override se o global mudar para um valor já aplicável (alinha sem surpresa)
+  useEffect(() => { setHemOverride(null); }, [hemPref]);
+
   const sizing: SizeSuggestion | null = useMemo(
-    () => suggestSize(`${p.name} ${p.notes ?? ""}`, measurements, hemPref),
-    [p.name, p.notes, measurements, hemPref],
+    () => suggestSize(productText, measurements, effectivePref),
+    [productText, measurements, effectivePref],
   );
   const hasMeasurements = Boolean(measurements.bust_cm || measurements.waist_cm || measurements.hip_cm);
   const score = useMemo(() => calcCompatScore({
     itemSeasons: p.season ? [p.season] : [],
     itemTags: store?.tags ?? [],
-    itemText: `${p.name} ${p.notes ?? ""}`,
+    itemText: productText,
     dominantSeason,
     paletteHints,
-  }), [p.name, p.notes, p.season, store, dominantSeason, paletteHints]);
+  }), [productText, p.season, store, dominantSeason, paletteHints]);
+
+  const itemHemOptions: HemPreference[] | null =
+    itemCategory === "bottom" ? HEM_OPTIONS_BY_CATEGORY.bottom :
+    itemCategory === "dress" ? HEM_OPTIONS_BY_CATEGORY.dress :
+    null;
 
   return (
     <Card className={`bg-card/80 border-border shadow-panel hover:shadow-lift transition-all overflow-hidden ${highlight ? "ring-1 ring-accent/40" : ""}`}>
