@@ -153,6 +153,15 @@ export default function Dashboard() {
     return out as UserMeasurements;
   }, [bodyHistory]);
 
+  // Dicas de paleta extraídas da análise de cor mais recente — alimentam o score
+  const paletteHints = useMemo<string[]>(() => {
+    const a = colorHistory[0]?.analysis;
+    if (!a) return [];
+    const best = (a.palette?.best ?? []).map((c) => c.name).filter(Boolean) as string[];
+    const neutrals = (a.palette?.neutrals ?? []).map((c) => c.name).filter(Boolean) as string[];
+    return [...best, ...neutrals];
+  }, [colorHistory]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-app-radial grid place-items-center">
