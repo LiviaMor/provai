@@ -976,7 +976,7 @@ const Index = () => {
                       {isTryingOn && <div className="body-scan-loader scan-grid absolute inset-0" />}
                       {tryon?.tryonImage ? <img src={tryon.tryonImage} alt="Provador virtual gerado por IA" className="h-full w-full object-cover" /> : !isTryingOn && <span className="grid justify-items-center gap-3 p-6 text-center text-sm text-muted-foreground"><Sparkles className="size-8 text-primary" /> Seu provador virtual aparecerá aqui</span>}
                     </div>
-                    {tryon?.tryonImage && <a href={tryon.tryonImage} download="provador-encaixe.png" className="mt-3 flex items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</a>}
+                    {tryon?.tryonImage && <button type="button" onClick={() => downloadTryonImage(tryon.tryonImage!)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</button>}
                   </div>
                   {tryon?.advice && (
                     <div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel">
