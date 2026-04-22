@@ -795,6 +795,11 @@ const Index = () => {
             Encaixe
           </div>
           <div className="flex items-center gap-2">
+            {userId && (
+              <Link to="/painel">
+                <Button type="button" variant="ghost" size="sm" className="gap-2"><Sparkles className="size-4" /> Painel</Button>
+              </Link>
+            )}
             {userId && <Button type="button" variant="outline" size="sm" onClick={toggleAccountType}>{accountType.toUpperCase()}</Button>}
             <Button type="button" variant="ghost" size="sm" onClick={userId ? signOut : signIn} className="gap-2">
               <LogIn className="size-4" /> {userId ? "Sair" : "Entrar"}
