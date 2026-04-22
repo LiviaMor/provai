@@ -1200,3 +1200,63 @@ function InsightsTab({ body, colors }: { body: BodyAssessment[]; colors: ColorAn
 function LegendDot({ color, label }: { color: string; label: string }) {
   return <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />{label}</span>;
 }
+
+// ============================================================================
+// Badge de score de compatibilidade com tooltip explicativo
+function CompatScoreBadge({ score, compact }: { score: ScoreResult; compact?: boolean }) {
+  const colorClass = scoreColorClass(score.level);
+  const positives = score.reasons.filter((r) => r.positive);
+  const negatives = score.reasons.filter((r) => !r.positive);
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2 ${compact ? "py-0.5 text-[10px]" : "py-1 text-xs"} font-medium ${colorClass} cursor-help transition-transform hover:scale-105`}
+          >
+            <Sparkles className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} />
+            <span>{score.score}%</span>
+            {!compact && <span className="opacity-70">· {score.level}</span>}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs bg-popover border-border z-50">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-display">Compatibilidade {score.level}</span>
+              <span className="text-xs font-medium">{score.score}/100</span>
+            </div>
+            <Progress value={score.score} className="h-1.5" />
+            {positives.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[10px] uppercase tracking-wider text-accent">A favor</p>
+                <ul className="text-[11px] text-foreground/90 space-y-0.5">
+                  {positives.map((r, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-accent mt-0.5">+{r.weight}</span>
+                      <span>{r.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {negatives.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Atenção</p>
+                <ul className="text-[11px] text-muted-foreground space-y-0.5">
+                  {negatives.map((r, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="mt-0.5">{r.weight !== 0 ? r.weight : "·"}</span>
+                      <span>{r.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  );
+}
