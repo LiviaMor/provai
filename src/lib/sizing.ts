@@ -224,9 +224,14 @@ export function suggestSize(
     }
     let hemAdjust: number | undefined;
     if (m.height_cm) {
-      hemAdjust = +(((m.height_cm - HEIGHT_REF_BOTTOM) * 0.5)).toFixed(1);
+      const baseAdjust = (m.height_cm - HEIGHT_REF_BOTTOM) * 0.5; // positivo = peça curta vs. usuária alta
+      // Para vestidos, offset positivo significa "encurtar" — invertemos sinal para manter convenção
+      hemAdjust = +(-baseAdjust + HEM_OFFSET_DRESS[hemPref]).toFixed(1);
+      const prefLabel = HEM_PREFERENCE_LABELS[hemPref].toLowerCase();
       if (Math.abs(hemAdjust) >= 1) {
-        fitNotes.push(hemAdjust > 0 ? `Barra: alongar ${hemAdjust}cm` : `Barra: encurtar ${Math.abs(hemAdjust)}cm`);
+        fitNotes.push(hemAdjust > 0 ? `Barra (${prefLabel}): encurtar ${hemAdjust}cm` : `Barra (${prefLabel}): alongar ${Math.abs(hemAdjust)}cm`);
+      } else {
+        fitNotes.push(`Barra (${prefLabel}): no ponto`);
       }
     }
     return {
