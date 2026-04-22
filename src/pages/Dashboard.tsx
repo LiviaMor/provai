@@ -286,6 +286,7 @@ export default function Dashboard() {
               products={products}
               userId={user.id}
               dominantSeason={dominantSeason}
+              latestMeasurements={latestMeasurements}
               onAddStore={async (data) => {
                 const { data: row, error } = await supabase.from("favorite_stores").insert({ ...data, user_id: user.id }).select().single();
                 if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
