@@ -135,6 +135,29 @@ const HEM_OFFSET_DRESS: Record<HemPreference, number> = {
   knee: 30,
 };
 
+// Opções aplicáveis por categoria de peça. Calças não usam "midi"/"knee"
+// (típicos de vestidos) e vestidos não usam "seven_eighths"/"cropped"/"ankle"
+// (referências de barra de calça).
+export const HEM_OPTIONS_BY_CATEGORY: Record<"bottom" | "dress", HemPreference[]> = {
+  bottom: ["floor", "ankle", "seven_eighths", "cropped"],
+  dress: ["floor", "midi", "knee", "cropped"],
+};
+
+// Resolve a preferência efetiva para uma categoria; cai num default sensato
+// quando a escolha do usuário não se aplica àquela peça.
+export function resolveHemPreference(
+  category: GarmentCategory,
+  pref: HemPreference,
+): HemPreference {
+  if (category === "bottom") {
+    return HEM_OPTIONS_BY_CATEGORY.bottom.includes(pref) ? pref : "ankle";
+  }
+  if (category === "dress") {
+    return HEM_OPTIONS_BY_CATEGORY.dress.includes(pref) ? pref : "midi";
+  }
+  return pref;
+}
+
 const HEIGHT_REF_BOTTOM = 168; // referência de altura para inseam padrão
 const HEIGHT_REF_TOP = 168; // ref para comprimento de manga
 
