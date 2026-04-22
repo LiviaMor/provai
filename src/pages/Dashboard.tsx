@@ -137,6 +137,17 @@ export default function Dashboard() {
     return sorted[0]?.[0] ?? null;
   }, [colorHistory]);
 
+  // Medidas mais recentes (para sugestão de tamanho na wishlist)
+  const latestMeasurements = useMemo<UserMeasurements>(() => {
+    const last = bodyHistory[0]?.measurements ?? {};
+    const out: Record<string, number> = {};
+    Object.entries(last).forEach(([k, v]) => {
+      const n = typeof v === "number" ? v : Number(v);
+      if (Number.isFinite(n) && n > 0) out[k] = n;
+    });
+    return out as UserMeasurements;
+  }, [bodyHistory]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-app-radial grid place-items-center">
