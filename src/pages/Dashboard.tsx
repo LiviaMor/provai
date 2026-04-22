@@ -725,6 +725,14 @@ function StoresTab({
 
   return (
     <div className="space-y-6">
+      {/* ---------- MEDIDAS DE REFERÊNCIA ---------- */}
+      <ReferenceMeasuresCard
+        measurements={effectiveMeasurements}
+        manual={manualMeasures}
+        hasFromAnalysis={Boolean(latestMeasurements.height_cm || latestMeasurements.estimated_weight_kg || latestMeasurements.bust_cm)}
+        required={!hasReferenceMeasure}
+        onChange={setManualMeasures}
+      />
       {/* ---------- BARRA DE FILTROS ---------- */}
       <Card className="bg-card/60 border-border shadow-panel">
         <CardContent className="p-4 space-y-4">
