@@ -814,17 +814,46 @@ const Index = () => {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     } catch (err) {
-      console.error("download tryon failed", err);
-      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      console.error("download tryon failed, tentando fallback do servidor", err);
+      const clientMessage = err instanceof Error ? err.message : "Erro desconhecido";
       try {
-        if (src.startsWith("data:") || /^https?:/.test(src)) {
-          window.open(src, "_blank");
-          toast.message(`Não foi possível baixar automaticamente (${message}). Toque e segure na imagem para salvar.`);
+        const { data, error } = await supabase.functions.invoke("normalize-image", {
+          body: { src },
+        });
+        if (error) throw new Error(error.message ?? "Falha no fallback do servidor");
+        // data pode ser Blob ou ArrayBuffer dependendo do client
+        let blob: Blob;
+        if (data instanceof Blob) {
+          blob = data.type === "image/png" ? data : new Blob([await data.arrayBuffer()], { type: "image/png" });
+        } else if (data instanceof ArrayBuffer) {
+          blob = new Blob([data], { type: "image/png" });
+        } else if (data && typeof data === "object" && "error" in (data as Record<string, unknown>)) {
+          throw new Error(String((data as { error: string }).error));
         } else {
-          toast.error(`Imagem inválida: ${message}`);
+          throw new Error("Resposta inesperada do servidor");
         }
-      } catch {
-        toast.error(`Não foi possível baixar a imagem: ${message}`);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `provador-encaixe-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        toast.success("Imagem normalizada e baixada.");
+      } catch (fallbackErr) {
+        console.error("fallback normalize-image falhou", fallbackErr);
+        const fbMessage = fallbackErr instanceof Error ? fallbackErr.message : "erro desconhecido";
+        try {
+          if (src.startsWith("data:") || /^https?:/.test(src)) {
+            window.open(src, "_blank");
+            toast.message(`Não foi possível baixar (${clientMessage} / ${fbMessage}). Toque e segure na imagem para salvar.`);
+          } else {
+            toast.error(`Imagem inválida: ${clientMessage}`);
+          }
+        } catch {
+          toast.error(`Não foi possível baixar a imagem: ${fbMessage}`);
+        }
       }
     } finally {
       setIsDownloadingTryon(false);
