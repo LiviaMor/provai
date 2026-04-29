@@ -716,6 +716,8 @@ const Index = () => {
   };
 
   const downloadTryonImage = async (src: string) => {
+    if (isDownloadingTryon) return;
+    setIsDownloadingTryon(true);
     try {
       const filename = `provador-encaixe-${Date.now()}.png`;
       let blob: Blob;
@@ -746,6 +748,8 @@ const Index = () => {
       } catch {
         toast.error("Não foi possível baixar a imagem.");
       }
+    } finally {
+      setIsDownloadingTryon(false);
     }
   };
 
