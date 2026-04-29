@@ -12,6 +12,7 @@ import {
   History,
   KeyRound,
   Link2,
+  Loader2,
   Lock,
   LogIn,
   Palette,
