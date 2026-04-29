@@ -512,6 +512,7 @@ const Index = () => {
   const [garmentPreview, setGarmentPreview] = useState("");
   const [tryon, setTryon] = useState<TryonResult | null>(null);
   const [isTryingOn, setIsTryingOn] = useState(false);
+  const [isDownloadingTryon, setIsDownloadingTryon] = useState(false);
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
