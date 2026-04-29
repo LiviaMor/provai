@@ -12,6 +12,7 @@ import {
   History,
   KeyRound,
   Link2,
+  Loader2,
   Lock,
   LogIn,
   Palette,
@@ -511,6 +512,7 @@ const Index = () => {
   const [garmentPreview, setGarmentPreview] = useState("");
   const [tryon, setTryon] = useState<TryonResult | null>(null);
   const [isTryingOn, setIsTryingOn] = useState(false);
+  const [isDownloadingTryon, setIsDownloadingTryon] = useState(false);
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
@@ -714,6 +716,8 @@ const Index = () => {
   };
 
   const downloadTryonImage = async (src: string) => {
+    if (isDownloadingTryon) return;
+    setIsDownloadingTryon(true);
     try {
       const filename = `provador-encaixe-${Date.now()}.png`;
       let blob: Blob;
@@ -744,6 +748,8 @@ const Index = () => {
       } catch {
         toast.error("Não foi possível baixar a imagem.");
       }
+    } finally {
+      setIsDownloadingTryon(false);
     }
   };
 
@@ -1010,7 +1016,7 @@ const Index = () => {
                       {isTryingOn && <div className="body-scan-loader scan-grid absolute inset-0" />}
                       {tryon?.tryonImage ? <img src={tryon.tryonImage} alt="Provador virtual gerado por IA" className="h-full w-full object-cover" /> : !isTryingOn && <span className="grid justify-items-center gap-3 p-6 text-center text-sm text-muted-foreground"><Sparkles className="size-8 text-primary" /> Seu provador virtual aparecerá aqui</span>}
                     </div>
-                    {tryon?.tryonImage && <button type="button" onClick={() => downloadTryonImage(tryon.tryonImage!)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold"><Download className="size-4" /> Baixar imagem</button>}
+                    {tryon?.tryonImage && <button type="button" onClick={() => downloadTryonImage(tryon.tryonImage!)} disabled={isDownloadingTryon} aria-busy={isDownloadingTryon} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60">{isDownloadingTryon ? <><Loader2 className="size-4 animate-spin" /> Baixando…</> : <><Download className="size-4" /> Baixar imagem</>}</button>}
                   </div>
                   {tryon?.advice && (
                     <div className="space-y-3 rounded-2xl border bg-card/80 p-5 shadow-panel">
