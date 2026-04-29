@@ -715,43 +715,122 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
 
+  const isValidImageMime = (mime: string) => /^image\/(png|jpeg|jpg|webp|gif)$/i.test(mime);
+
+  const sniffImageMimeFromBytes = (bytes: Uint8Array): string | null => {
+    if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+    if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return "image/gif";
+    return null;
+  };
+
+  const extFromMime = (mime: string) => {
+    if (/png/i.test(mime)) return "png";
+    if (/jpe?g/i.test(mime)) return "jpg";
+    if (/webp/i.test(mime)) return "webp";
+    if (/gif/i.test(mime)) return "gif";
+    return "png";
+  };
+
   const downloadTryonImage = async (src: string) => {
     if (isDownloadingTryon) return;
+    if (!src || typeof src !== "string") {
+      toast.error("Imagem inválida para download.");
+      return;
+    }
     setIsDownloadingTryon(true);
     try {
-      const filename = `provador-encaixe-${Date.now()}.png`;
       let blob: Blob;
+      let detectedMime = "image/png";
+
       if (src.startsWith("data:")) {
-        const [meta, b64] = src.split(",");
-        const mime = meta.match(/data:(.*?);/)?.[1] ?? "image/png";
-        const bin = atob(b64);
+        const commaIdx = src.indexOf(",");
+        if (commaIdx === -1) throw new Error("Data URL malformada");
+        const meta = src.slice(0, commaIdx);
+        const b64 = src.slice(commaIdx + 1);
+        const mimeMatch = meta.match(/data:(.*?)(;base64)?$/);
+        const declaredMime = mimeMatch?.[1] ?? "";
+        if (!declaredMime.startsWith("image/") || !isValidImageMime(declaredMime)) {
+          throw new Error(`Tipo de mídia não suportado: ${declaredMime || "desconhecido"}`);
+        }
+        if (!/^[A-Za-z0-9+/=\s]+$/.test(b64) || b64.length === 0) {
+          throw new Error("Conteúdo base64 inválido");
+        }
+        let bin: string;
+        try {
+          bin = atob(b64.replace(/\s+/g, ""));
+        } catch {
+          throw new Error("Falha ao decodificar base64");
+        }
+        if (bin.length < 8) throw new Error("Imagem muito pequena para ser válida");
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        blob = new Blob([bytes], { type: mime });
+        const sniffed = sniffImageMimeFromBytes(bytes);
+        if (!sniffed) throw new Error("Assinatura de imagem não reconhecida");
+        detectedMime = sniffed;
+        blob = new Blob([bytes], { type: detectedMime });
       } else {
-        const res = await fetch(src);
-        blob = await res.blob();
+        let url: URL;
+        try {
+          url = new URL(src, window.location.href);
+        } catch {
+          throw new Error("URL de imagem inválida");
+        }
+        if (!/^https?:$/.test(url.protocol)) throw new Error("Protocolo não suportado");
+        const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const fetched = await res.blob();
+        if (fetched.size === 0) throw new Error("Resposta vazia");
+        const headerMime = fetched.type;
+        const buf = new Uint8Array(await fetched.slice(0, 16).arrayBuffer());
+        const sniffed = sniffImageMimeFromBytes(buf);
+        const finalMime = sniffed ?? (isValidImageMime(headerMime) ? headerMime : "");
+        if (!finalMime) throw new Error("Conteúdo retornado não é uma imagem válida");
+        detectedMime = finalMime;
+        blob = sniffed && headerMime !== sniffed ? new Blob([fetched], { type: finalMime }) : fetched;
       }
-      const url = URL.createObjectURL(blob);
+
+      // Validação final: o navegador consegue decodificar?
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => (img.naturalWidth > 0 && img.naturalHeight > 0 ? resolve() : reject(new Error("Imagem com dimensões inválidas")));
+          img.onerror = () => reject(new Error("Falha ao decodificar imagem"));
+          img.src = objectUrl;
+        });
+      } catch (decodeErr) {
+        URL.revokeObjectURL(objectUrl);
+        throw decodeErr;
+      }
+
+      const filename = `provador-encaixe-${Date.now()}.${extFromMime(detectedMime)}`;
       const a = document.createElement("a");
-      a.href = url;
+      a.href = objectUrl;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     } catch (err) {
       console.error("download tryon failed", err);
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
       try {
-        window.open(src, "_blank");
-        toast.message("Toque e segure na imagem para salvar.");
+        if (src.startsWith("data:") || /^https?:/.test(src)) {
+          window.open(src, "_blank");
+          toast.message(`Não foi possível baixar automaticamente (${message}). Toque e segure na imagem para salvar.`);
+        } else {
+          toast.error(`Imagem inválida: ${message}`);
+        }
       } catch {
-        toast.error("Não foi possível baixar a imagem.");
+        toast.error(`Não foi possível baixar a imagem: ${message}`);
       }
     } finally {
       setIsDownloadingTryon(false);
     }
   };
+
 
   const runTryon = async () => {
     if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
