@@ -817,22 +817,85 @@ const Index = () => {
       console.error("download tryon failed, tentando fallback do servidor", err);
       const clientMessage = err instanceof Error ? err.message : "Erro desconhecido";
       try {
-        const { data, error } = await supabase.functions.invoke("normalize-image", {
-          body: { src },
+        const MIN_BYTES = 100; // PNG mínimo realista
+        const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+
+        const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/normalize-image`;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        const res = await fetch(functionsUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "image/png",
+          },
+          body: JSON.stringify({ src }),
         });
-        if (error) throw new Error(error.message ?? "Falha no fallback do servidor");
-        // data pode ser Blob ou ArrayBuffer dependendo do client
-        let blob: Blob;
-        if (data instanceof Blob) {
-          blob = data.type === "image/png" ? data : new Blob([await data.arrayBuffer()], { type: "image/png" });
-        } else if (data instanceof ArrayBuffer) {
-          blob = new Blob([data], { type: "image/png" });
-        } else if (data && typeof data === "object" && "error" in (data as Record<string, unknown>)) {
-          throw new Error(String((data as { error: string }).error));
-        } else {
-          throw new Error("Resposta inesperada do servidor");
+
+        if (!res.ok) {
+          let serverMsg = `HTTP ${res.status}`;
+          try {
+            const errBody = await res.json();
+            if (errBody?.error) serverMsg = String(errBody.error);
+          } catch { /* ignora */ }
+          throw new Error(serverMsg);
         }
+
+        // Validação de Content-Type
+        const contentType = (res.headers.get("Content-Type") ?? "").split(";")[0]?.trim().toLowerCase();
+        if (contentType !== "image/png") {
+          throw new Error(`Content-Type inesperado: ${contentType || "vazio"}`);
+        }
+
+        // Validação de Content-Length declarado (quando presente)
+        const declaredLengthHeader = res.headers.get("Content-Length");
+        if (declaredLengthHeader) {
+          const declaredLength = Number(declaredLengthHeader);
+          if (!Number.isFinite(declaredLength) || declaredLength < MIN_BYTES) {
+            throw new Error(`Tamanho declarado inválido: ${declaredLengthHeader}`);
+          }
+          if (declaredLength > MAX_BYTES) {
+            throw new Error(`Imagem excede o limite (${declaredLength} bytes)`);
+          }
+        }
+
+        const buffer = await res.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+
+        // Validação de tamanho real
+        if (bytes.byteLength < MIN_BYTES) {
+          throw new Error(`Arquivo muito pequeno (${bytes.byteLength} bytes)`);
+        }
+        if (bytes.byteLength > MAX_BYTES) {
+          throw new Error(`Arquivo excede o limite (${bytes.byteLength} bytes)`);
+        }
+
+        // Validação da assinatura PNG (\x89 P N G \r \n \x1a \n)
+        const isPng =
+          bytes.length >= 8 &&
+          bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+          bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+        if (!isPng) {
+          throw new Error("Assinatura PNG inválida no retorno do servidor");
+        }
+
+        const blob = new Blob([bytes], { type: "image/png" });
         const url = URL.createObjectURL(blob);
+
+        // Validação final: o navegador consegue decodificar?
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => (img.naturalWidth > 0 && img.naturalHeight > 0 ? resolve() : reject(new Error("PNG com dimensões inválidas")));
+          img.onerror = () => reject(new Error("Falha ao decodificar PNG retornado"));
+          img.src = url;
+        }).catch((decodeErr) => {
+          URL.revokeObjectURL(url);
+          throw decodeErr;
+        });
+
         const a = document.createElement("a");
         a.href = url;
         a.download = `provador-encaixe-${Date.now()}.png`;
