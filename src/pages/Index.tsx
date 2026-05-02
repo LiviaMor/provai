@@ -1356,6 +1356,31 @@ const Index = () => {
                     </select>
                   </div>
                 </div>
+                <div className="rounded-2xl border border-dashed bg-secondary/40 p-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold uppercase tracking-wider text-foreground">📐 Parâmetros de captura</span>
+                    {profile?.capture_preferences?.updatedAt && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Última calibração: {new Date(profile.capture_preferences.updatedAt).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-muted-foreground">Salvamos automaticamente para você repetir o mesmo enquadramento na próxima foto e ganhar precisão comparativa.</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="camera-distance" className="text-[11px] font-bold">Distância da câmera (m)</Label>
+                      <Input id="camera-distance" inputMode="decimal" placeholder="2,5" value={cameraDistanceM} onChange={(e) => setCameraDistanceM(e.target.value)} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="support-height" className="text-[11px] font-bold">Altura do apoio/tripé (cm)</Label>
+                      <Input id="support-height" inputMode="decimal" placeholder="110" value={supportHeightCm} onChange={(e) => setSupportHeightCm(e.target.value)} className="h-9 text-xs" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                    <span className={`rounded-full px-2 py-0.5 ${frontPreview ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{frontPreview ? "✓" : "○"} Frontal</span>
+                    <span className={`rounded-full px-2 py-0.5 ${sidePreview ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{sidePreview ? "✓" : "○"} Lateral</span>
+                  </div>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
