@@ -567,6 +567,8 @@ const Index = () => {
   }>({ front: [], side: [] });
   const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
   const [readyChecks, setReadyChecks] = useState<Record<string, boolean>>({});
+  const [cameraDistanceM, setCameraDistanceM] = useState<string>("");
+  const [supportHeightCm, setSupportHeightCm] = useState<string>("");
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
