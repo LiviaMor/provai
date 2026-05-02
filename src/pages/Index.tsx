@@ -540,6 +540,7 @@ const Index = () => {
   const [bioimpedance, setBioimpedance] = useState<Record<string, string>>({});
   const [bioFileName, setBioFileName] = useState("");
   const [consent, setConsent] = useState(false);
+  const [storeImages, setStoreImages] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [history, setHistory] = useState(historySeed);
@@ -755,10 +756,35 @@ const Index = () => {
       return;
     }
 
+    let storedPhotos: { front?: string; side?: string } | undefined;
+    if (storeImages && (frontPreview || sidePreview)) {
+      try {
+        const uploads: Array<["front" | "side", string]> = [];
+        if (frontPreview) uploads.push(["front", frontPreview]);
+        if (sidePreview) uploads.push(["side", sidePreview]);
+        const result: { front?: string; side?: string } = {};
+        for (const [kind, dataUrl] of uploads) {
+          const blob = await (await fetch(dataUrl)).blob();
+          const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
+          const path = `${userId}/${Date.now()}-${kind}.${ext}`;
+          const { error: upErr } = await supabase.storage.from("assessment-photos").upload(path, blob, {
+            contentType: blob.type || "image/jpeg",
+            upsert: false,
+          });
+          if (upErr) throw upErr;
+          result[kind] = path;
+        }
+        storedPhotos = result;
+      } catch (err) {
+        console.error("photo upload failed", err);
+        toast.error("Não foi possível salvar as fotos com segurança. As medidas serão salvas mesmo assim.");
+      }
+    }
+
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
       title: "Avaliação Encaixe",
-      source: frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`,
+      source: storedPhotos ? `photo-${accountType}-stored` : (frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`),
       gender,
       objective,
       product_url: productUrl || null,
@@ -766,7 +792,7 @@ const Index = () => {
       measurements: result.measurements,
       size_recommendations: result.sizeRecommendations ?? {},
       style_recommendations: result.styleRecommendations ?? [],
-      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData },
+      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData, storedPhotos: storedPhotos ?? null },
       notes,
     });
   };
@@ -1355,7 +1381,42 @@ const Index = () => {
                 <Label htmlFor="bio-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> {bioFileName || "Upload do exame"}</Label>
                 <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
               </div>
-              {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
+              {mode === "photo" && (
+                <div className="space-y-2 rounded-2xl border bg-muted/60 p-3 text-sm leading-6">
+                  <div className="text-xs font-bold uppercase tracking-wider text-foreground">🔒 Privacidade — escolha o que guardar</div>
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(event) => setConsent(event.target.checked)}
+                      className="mt-1 size-4 accent-primary"
+                    />
+                    <span>Autorizo usar minhas fotos <span className="font-semibold">apenas para gerar a análise</span> agora (obrigatório para o modo foto).</span>
+                  </label>
+                  <label className={`flex items-start gap-3 ${userId ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
+                    <input
+                      type="checkbox"
+                      checked={storeImages && !!userId}
+                      disabled={!userId}
+                      onChange={(event) => setStoreImages(event.target.checked)}
+                      className="mt-1 size-4 accent-primary"
+                    />
+                    <span>
+                      <span className="font-semibold">Armazenar minhas fotos com segurança</span> na minha conta (área privada com login e senha, só eu acesso).
+                      {!userId && <span className="ml-1 text-xs text-muted-foreground">— faça login para habilitar.</span>}
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={!storeImages}
+                      onChange={(event) => setStoreImages(!event.target.checked)}
+                      className="mt-1 size-4 accent-primary"
+                    />
+                    <span><span className="font-semibold">Salvar somente as medidas</span> (recomendado) — as fotos são descartadas após a análise.</span>
+                  </label>
+                </div>
+              )}
               {(() => {
                 const requiredKeys = ["pose","lateral","distancia","enquadramento","roupa","luz","camera","marcador"];
                 const allReady = requiredKeys.every((k) => readyChecks[k]);
