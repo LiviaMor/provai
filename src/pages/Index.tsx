@@ -290,7 +290,7 @@ const normalizeMeasurements = (raw: unknown): Measurements => {
   const source = (raw ?? {}) as Record<string, unknown>;
   return Object.entries(source).reduce<Measurements>((acc, [key, value]) => {
     const numeric = typeof value === "object" && value ? Number((value as Record<string, unknown>).value) : Number(value);
-    if (Number.isFinite(numeric)) acc[key === "weight_kg" ? "estimated_weight_kg" : (key as MeasurementKey)] = numeric;
+    if (Number.isFinite(numeric) && numeric > 0) acc[key === "weight_kg" ? "estimated_weight_kg" : (key as MeasurementKey)] = numeric;
     return acc;
   }, {});
 };
