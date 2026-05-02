@@ -1312,11 +1312,19 @@ const Index = () => {
                 </>
               )}
 
+              <div className="rounded-2xl border bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">
+                <span className="font-bold text-primary">★ Recomendado:</span> preencha pelo menos <span className="font-semibold text-foreground">altura*, peso*, cintura*, quadril* e busto*</span> para uma avaliação muito mais precisa (calibração da escala, IMC, silhueta e tamanho).
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {manualFields.map((field) => (
                   <div key={field.key} className="space-y-2">
-                    <Label htmlFor={field.key}>{field.label}</Label>
+                    <Label htmlFor={field.key} className="flex items-center gap-1">
+                      {field.recommended && <span className="text-primary" title={field.hint}>★</span>}
+                      {field.label}
+                      {field.recommended && <span className="text-primary">*</span>}
+                    </Label>
                     <Input id={field.key} inputMode="decimal" value={manual[field.key] ?? ""} onChange={(event) => setManual((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} />
+                    {field.recommended && field.hint && <p className="text-[11px] leading-4 text-muted-foreground">{field.hint}</p>}
                   </div>
                 ))}
                 <div className="space-y-2">
