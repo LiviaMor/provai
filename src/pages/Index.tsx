@@ -624,11 +624,23 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    if (!frontPreview && !sidePreview) {
-      sessionStorage.removeItem(TEMP_PHOTOS_KEY);
-      return;
+    try {
+      if (!frontPreview && !sidePreview) {
+        sessionStorage.removeItem(TEMP_PHOTOS_KEY);
+        return;
+      }
+      const payload = JSON.stringify({ frontPreview, sidePreview, savedAt: Date.now() });
+      // sessionStorage is ~5MB; base64 photos can blow the quota. Skip persistence if too big.
+      if (payload.length > 4_500_000) {
+        sessionStorage.removeItem(TEMP_PHOTOS_KEY);
+        return;
+      }
+      sessionStorage.setItem(TEMP_PHOTOS_KEY, payload);
+    } catch (err) {
+      // QuotaExceededError or private-mode failure: keep photos in memory only.
+      try { sessionStorage.removeItem(TEMP_PHOTOS_KEY); } catch {}
+      console.warn("Não foi possível salvar fotos temporárias (quota excedida).", err);
     }
-    sessionStorage.setItem(TEMP_PHOTOS_KEY, JSON.stringify({ frontPreview, sidePreview, savedAt: Date.now() }));
   }, [frontPreview, sidePreview]);
 
   const onImageChange = (event: ChangeEvent<HTMLInputElement>, kind: "front" | "side") => {
