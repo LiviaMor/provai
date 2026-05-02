@@ -1197,19 +1197,53 @@ const Index = () => {
               }}>← Voltar</Button>
               <h2 className="font-display text-3xl font-semibold">{mode === "photo" ? "Captura guiada" : "Medidas manuais"}</h2>
               <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. Você pode tirar uma foto na hora ou enviar uma imagem da galeria.</p>
-              <div className="rounded-2xl border bg-secondary/40 p-4 text-xs">
-                <div className="mb-2 font-bold uppercase tracking-wider text-foreground">📐 Como aproximar do real</div>
-                <ul className="grid gap-1.5 leading-5 text-muted-foreground">
-                  <li><span className="font-semibold text-foreground">Pose:</span> em pé, ereto, pés juntos, braços levemente afastados (~15°), palmas voltadas para o corpo, olhar para frente.</li>
-                  <li><span className="font-semibold text-foreground">Lateral:</span> gire 90°, ombros e quadris alinhados, braços relaxados ao lado do tronco.</li>
-                  <li><span className="font-semibold text-foreground">Distância:</span> câmera a ~2,5–3 m, na altura do umbigo, lente paralela ao corpo (sem inclinar para cima/baixo).</li>
-                  <li><span className="font-semibold text-foreground">Enquadramento:</span> corpo inteiro visível com folga acima da cabeça e abaixo dos pés; fundo liso e contrastante.</li>
-                  <li><span className="font-semibold text-foreground">Roupa:</span> peça justa de cor única (evite estampas e roupas largas) — descalço ou com sapato baixo.</li>
-                  <li><span className="font-semibold text-foreground">Luz:</span> iluminação difusa e frontal; evite contraluz, sombras fortes e flash direto.</li>
-                  <li><span className="font-semibold text-foreground">Câmera:</span> celular na vertical, apoiado/tripé, sem zoom digital.</li>
-                  <li><span className="font-semibold text-foreground">Calibração:</span> coloque o marcador (cartão/A4/cédula) à frente do corpo, sem dobras, totalmente visível.</li>
-                </ul>
-              </div>
+              {(() => {
+                const checklistItems = [
+                  { key: "pose", label: "Pose: em pé, ereto, pés juntos, braços ~15° afastados, palmas para o corpo." },
+                  { key: "lateral", label: "Lateral: girei 90°, ombros e quadris alinhados, braços ao lado." },
+                  { key: "distancia", label: "Distância: câmera a ~2,5–3 m, na altura do umbigo, lente paralela ao corpo." },
+                  { key: "enquadramento", label: "Enquadramento: corpo inteiro visível, com folga acima e abaixo, fundo liso." },
+                  { key: "roupa", label: "Roupa justa de cor única, descalço ou sapato baixo." },
+                  { key: "luz", label: "Luz difusa e frontal — sem contraluz, sombra forte ou flash direto." },
+                  { key: "camera", label: "Celular na vertical, apoiado/tripé, sem zoom digital." },
+                  { key: "marcador", label: "Marcador (cartão/A4/cédula) à frente do corpo, sem dobras, totalmente visível." },
+                ];
+                const doneCount = checklistItems.filter((i) => readyChecks[i.key]).length;
+                const allReady = doneCount === checklistItems.length;
+                return (
+                  <div className="rounded-2xl border bg-secondary/40 p-4 text-xs">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="font-bold uppercase tracking-wider text-foreground">✅ Checklist ao vivo — confirme antes de enviar</div>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${allReady ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{doneCount}/{checklistItems.length}</span>
+                    </div>
+                    <Progress value={(doneCount / checklistItems.length) * 100} className="mb-3 h-1.5" />
+                    <ul className="grid gap-1.5 leading-5">
+                      {checklistItems.map((item) => {
+                        const checked = !!readyChecks[item.key];
+                        return (
+                          <li key={item.key}>
+                            <label className="flex cursor-pointer items-start gap-2 rounded-md p-1 hover:bg-background/60">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => setReadyChecks((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                                className="mt-0.5 size-4 accent-primary"
+                              />
+                              <span className={checked ? "text-muted-foreground line-through" : "text-foreground"}>{item.label}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {!allReady && mode === "photo" && (
+                      <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Marque todos os itens para liberar o envio das fotos.</p>
+                    )}
+                    {allReady && (
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-primary"><CheckCircle2 className="size-3.5" /> Tudo pronto! Você pode enviar as fotos.</div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="grid gap-2">
                 {["Foto frente", "Foto lateral", "Processando"].map((step, index) => (
                   <div key={step} className="flex items-center gap-3 rounded-2xl bg-muted p-3 text-sm font-bold">
