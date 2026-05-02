@@ -514,6 +514,12 @@ const Index = () => {
   const [tryon, setTryon] = useState<TryonResult | null>(null);
   const [isTryingOn, setIsTryingOn] = useState(false);
   const [isDownloadingTryon, setIsDownloadingTryon] = useState(false);
+  const [markerType, setMarkerType] = useState<"card" | "a4" | "banknote_brl">("card");
+  const [scaleCalibration, setScaleCalibration] = useState<{
+    front?: { px_per_cm: number; marker_label: string; confidence: number | null };
+    side?: { px_per_cm: number; marker_label: string; confidence: number | null };
+  }>({});
+  const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
@@ -595,18 +601,47 @@ const Index = () => {
     if (file.size > 7 * 1024 * 1024) return toast.error("Use uma foto de até 7MB para análise mais rápida.");
     const reader = new FileReader();
     reader.onload = () => {
-      kind === "front" ? setFrontPreview(String(reader.result)) : setSidePreview(String(reader.result));
+      if (kind === "front") {
+        setFrontPreview(String(reader.result));
+        setScaleCalibration((prev) => ({ ...prev, front: undefined }));
+      } else {
+        setSidePreview(String(reader.result));
+        setScaleCalibration((prev) => ({ ...prev, side: undefined }));
+      }
       toast.success("Foto salva temporariamente neste dispositivo.");
     };
     reader.readAsDataURL(file);
   };
 
-  const manualMeasurements = () =>
-    manualFields.reduce<Measurements>((acc, field) => {
-      const value = parseNumber(manual[field.key] ?? "");
-      if (value) acc[field.key] = value;
-      return acc;
-    }, {});
+  const calibrateScale = async (kind: "front" | "side") => {
+    const image = kind === "front" ? frontPreview : sidePreview;
+    if (!image) return toast.error(`Envie a foto ${kind === "front" ? "frontal" : "lateral"} antes de calibrar.`);
+    setCalibratingSide(kind);
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-scale-marker", {
+        body: { imageDataUrl: image, markerType },
+      });
+      if (error) throw new Error(error.message ?? "Falha na chamada");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.found) {
+        toast.error(data?.reason ?? "Marcador não detectado. Reenquadre a foto deixando o marcador bem visível.");
+        return;
+      }
+      setScaleCalibration((prev) => ({
+        ...prev,
+        [kind]: {
+          px_per_cm: data.px_per_cm,
+          marker_label: data.marker_label,
+          confidence: data.confidence,
+        },
+      }));
+      toast.success(`Escala calibrada: ${data.px_per_cm} px/cm (${data.marker_label.split(" — ")[0]}).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao calibrar escala.");
+    } finally {
+      setCalibratingSide(null);
+    }
+  };
 
   const updateAnalysisMeasurement = (key: MeasurementKey, value: string) => {
     setManual((prev) => ({ ...prev, [key]: value }));
@@ -680,6 +715,7 @@ const Index = () => {
         productUrl: productUrl.trim() || undefined,
         manualMeasurements: measurements,
         bioimpedance: bioimpedanceData,
+        scaleCalibration: (scaleCalibration.front || scaleCalibration.side) ? scaleCalibration : undefined,
       },
     });
 
@@ -924,6 +960,13 @@ const Index = () => {
     }
   };
 
+  const manualMeasurements = () =>
+    manualFields.reduce<Measurements>((acc, field) => {
+      const value = parseNumber(manual[field.key] ?? "");
+      if (value) acc[field.key] = value;
+      return acc;
+    }, {});
+
 
   const runTryon = async () => {
     if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
@@ -1071,6 +1114,26 @@ const Index = () => {
 
             <div className="space-y-4 rounded-2xl border bg-panel-glow p-4 shadow-panel backdrop-blur sm:p-5">
               {mode === "photo" && (
+                <>
+                <div className="rounded-2xl border border-dashed bg-secondary/40 p-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold uppercase tracking-wider text-foreground">Calibração de escala</span>
+                    <span className="text-muted-foreground">— posicione um marcador físico de tamanho conhecido na foto (encostado no corpo ou no chão, sem dobras) para converter pixels em cm com precisão.</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Label htmlFor="marker-type" className="text-xs font-bold">Marcador:</Label>
+                    <select
+                      id="marker-type"
+                      value={markerType}
+                      onChange={(e) => setMarkerType(e.target.value as typeof markerType)}
+                      className="h-9 rounded-md border bg-background px-2 text-xs font-semibold"
+                    >
+                      <option value="card">Cartão (8,56 × 5,40 cm)</option>
+                      <option value="a4">Folha A4 (29,7 × 21,0 cm)</option>
+                      <option value="banknote_brl">Cédula R$ (14,2 × 6,5 cm)</option>
+                    </select>
+                  </div>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
@@ -1080,6 +1143,9 @@ const Index = () => {
                       <Label htmlFor="front-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
                       <Label htmlFor="front-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload</Label>
                     </div>
+                    <Button type="button" variant="outline" size="sm" disabled={!frontPreview || calibratingSide === "front"} onClick={() => calibrateScale("front")} className="w-full">
+                      {calibratingSide === "front" ? "Detectando marcador…" : scaleCalibration.front ? `✓ ${scaleCalibration.front.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
@@ -1089,12 +1155,16 @@ const Index = () => {
                       <Label htmlFor="side-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
                       <Label htmlFor="side-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload</Label>
                     </div>
+                    <Button type="button" variant="outline" size="sm" disabled={!sidePreview || calibratingSide === "side"} onClick={() => calibrateScale("side")} className="w-full">
+                      {calibratingSide === "side" ? "Detectando marcador…" : scaleCalibration.side ? `✓ ${scaleCalibration.side.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
+                    </Button>
                   </div>
                   <Input id="front-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="front-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="side-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
                   <Input id="side-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
                 </div>
+                </>
               )}
 
               <div className="grid grid-cols-2 gap-3">
