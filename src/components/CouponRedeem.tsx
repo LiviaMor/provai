@@ -16,6 +16,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   audience_mismatch: "Este cupom não é elegível para o seu tipo de conta.",
   already_redeemed: "Você já resgatou este cupom.",
   no_profile: "Perfil não encontrado.",
+  team_too_large: "Este cupom é válido apenas para times menores. Veja /planos.",
 };
 
 const formatDate = (iso: string) =>

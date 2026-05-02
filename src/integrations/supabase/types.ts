@@ -146,6 +146,7 @@ export type Database = {
           description: string | null
           discount_percent: number
           id: string
+          max_team_size: number | null
           max_uses: number | null
           updated_at: string
           uses_count: number
@@ -161,6 +162,7 @@ export type Database = {
           description?: string | null
           discount_percent?: number
           id?: string
+          max_team_size?: number | null
           max_uses?: number | null
           updated_at?: string
           uses_count?: number
@@ -176,6 +178,7 @@ export type Database = {
           description?: string | null
           discount_percent?: number
           id?: string
+          max_team_size?: number | null
           max_uses?: number | null
           updated_at?: string
           uses_count?: number
@@ -280,6 +283,7 @@ export type Database = {
           display_name: string | null
           id: string
           premium_access_until: string | null
+          team_size: number
           updated_at: string
           user_id: string
         }
@@ -292,6 +296,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           premium_access_until?: string | null
+          team_size?: number
           updated_at?: string
           user_id: string
         }
@@ -304,6 +309,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           premium_access_until?: string | null
+          team_size?: number
           updated_at?: string
           user_id?: string
         }
