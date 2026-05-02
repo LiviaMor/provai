@@ -715,6 +715,7 @@ const Index = () => {
         productUrl: productUrl.trim() || undefined,
         manualMeasurements: measurements,
         bioimpedance: bioimpedanceData,
+        scaleCalibration: (scaleCalibration.front || scaleCalibration.side) ? scaleCalibration : undefined,
       },
     });
 
