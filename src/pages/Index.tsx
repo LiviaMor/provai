@@ -174,13 +174,13 @@ const measureLabels: Record<string, string> = {
   torso_length_cm: "Tronco",
 };
 
-const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: string }> = [
-  { key: "height_cm", label: "Altura (cm)", placeholder: "170" },
-  { key: "estimated_weight_kg", label: "Peso (kg)", placeholder: "68" },
-  { key: "bust_cm", label: "Busto/Tórax (cm)", placeholder: "92" },
+const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: string; recommended?: boolean; hint?: string }> = [
+  { key: "height_cm", label: "Altura (cm)", placeholder: "170", recommended: true, hint: "Calibra a escala da foto e melhora todas as medidas derivadas." },
+  { key: "estimated_weight_kg", label: "Peso (kg)", placeholder: "68", recommended: true, hint: "Refina IMC, % gordura estimada e recomendação de tamanho." },
+  { key: "bust_cm", label: "Busto/Tórax (cm)", placeholder: "92", recommended: true, hint: "Essencial para tops, vestidos e blazers." },
   { key: "underbust_cm", label: "Abaixo do busto (cm)", placeholder: "76" },
-  { key: "waist_cm", label: "Cintura (cm)", placeholder: "74" },
-  { key: "hip_cm", label: "Quadril (cm)", placeholder: "99" },
+  { key: "waist_cm", label: "Cintura (cm)", placeholder: "74", recommended: true, hint: "Define silhueta e tamanho de calça/saia/vestido." },
+  { key: "hip_cm", label: "Quadril (cm)", placeholder: "99", recommended: true, hint: "Crítico para calça, saia e vestido — combina com a cintura." },
   { key: "thigh_cm", label: "Coxa (cm)", placeholder: "58" },
   { key: "inseam_cm", label: "Comprimento da perna (cm)", placeholder: "76" },
   { key: "arm_length_cm", label: "Comprimento do braço (cm)", placeholder: "58" },
@@ -1312,11 +1312,19 @@ const Index = () => {
                 </>
               )}
 
+              <div className="rounded-2xl border bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">
+                <span className="font-bold text-primary">★ Recomendado:</span> preencha pelo menos <span className="font-semibold text-foreground">altura*, peso*, cintura*, quadril* e busto*</span> para uma avaliação muito mais precisa (calibração da escala, IMC, silhueta e tamanho).
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {manualFields.map((field) => (
                   <div key={field.key} className="space-y-2">
-                    <Label htmlFor={field.key}>{field.label}</Label>
+                    <Label htmlFor={field.key} className="flex items-center gap-1">
+                      {field.recommended && <span className="text-primary" title={field.hint}>★</span>}
+                      {field.label}
+                      {field.recommended && <span className="text-primary">*</span>}
+                    </Label>
                     <Input id={field.key} inputMode="decimal" value={manual[field.key] ?? ""} onChange={(event) => setManual((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} />
+                    {field.recommended && field.hint && <p className="text-[11px] leading-4 text-muted-foreground">{field.hint}</p>}
                   </div>
                 ))}
                 <div className="space-y-2">
