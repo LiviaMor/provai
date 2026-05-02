@@ -643,23 +643,49 @@ const Index = () => {
     }
   }, [frontPreview, sidePreview]);
 
+  const compressImage = (dataUrl: string, maxSide = 1280, quality = 0.82): Promise<string> =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(dataUrl);
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+
   const onImageChange = (event: ChangeEvent<HTMLInputElement>, kind: "front" | "side") => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("Envie uma imagem válida.");
     if (file.size > 7 * 1024 * 1024) return toast.error("Use uma foto de até 7MB para análise mais rápida.");
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
+      const raw = String(reader.result);
+      // Comprime antes de manter em memória/sessão para não estourar a quota e para acelerar uploads à IA.
+      const compressed = await compressImage(raw, 1280, 0.82);
       if (kind === "front") {
-        setFrontPreview(String(reader.result));
+        setFrontPreview(compressed);
         setScaleCalibration((prev) => ({ ...prev, front: undefined }));
         setCalibrationHistory((prev) => ({ ...prev, front: [] }));
       } else {
-        setSidePreview(String(reader.result));
+        setSidePreview(compressed);
         setScaleCalibration((prev) => ({ ...prev, side: undefined }));
         setCalibrationHistory((prev) => ({ ...prev, side: [] }));
       }
-      toast.success("Foto salva temporariamente neste dispositivo.");
+      toast.success("Foto salva e mantida durante toda a análise.");
     };
     reader.readAsDataURL(file);
   };

@@ -240,7 +240,26 @@ Use fotos frontal/lateral quando existirem, medidas manuais e contexto da págin
       ? `CALIBRAÇÃO DE ESCALA DETECTADA POR MARCADOR FÍSICO (use OBRIGATORIAMENTE como referência absoluta para converter pixels → cm em todas as medidas. Tem prioridade sobre estimativas baseadas só em altura): ${calibrationParts.join(" | ")}. Eleve a confiança das medidas para "alta" quando derivadas dessa calibração.`
       : "Sem calibração por marcador físico — estime escala usando altura informada e proporções antropométricas.";
 
-    const userText = `Dados opcionais: altura=${payload.heightCm ?? "não informado"}cm, peso=${payload.weightKg ?? "não informado"}kg, idade=${payload.age ?? "não informado"}, gênero/modelagem=${payload.gender ?? "não informado"}, objetivo=${payload.shoppingGoal ?? "compra online e avaliação física"}, bioimpedância=${JSON.stringify(payload.bioimpedance ?? {})}. ${calibrationText} Contexto da loja/produto extraído do link: ${productContext}. Retorne exatamente um JSON no formato: scan_id, analyzed_at, input_data {photos_provided, user_provided_height_cm, user_provided_weight_kg, age, gender, goal, scale_calibration}, measurements com cada medida como {value, confidence} para height_cm, weight_kg, bust_cm, underbust_cm, waist_cm, hip_cm, shoulder_width_cm, inseam_cm, outseam_cm, arm_length_cm, thigh_cm, neck_cm, torso_length_cm; body_analysis {bmi, bmi_category, body_fat_estimate_pct, body_fat_range_low, body_fat_range_high, body_fat_method, body_fat_methodology_note, body_fat_breakdown:[{method, value, reference}], muscle_mass_kg, visceral_fat, basal_metabolic_rate_kcal, tissue_distribution, body_fat_disclaimer, body_type, waist_to_hip_ratio, abdominal_risk}; clothing_sizes {size_brazil, size_international, size_european, pants_number_brazil, bra_size, shoe_size_br}; tailoring {hem_adjustment_cm, hem_note, sleeve_adjustment_cm, sleeve_note, shoulder_fit, waist_fit_suggestion}; style_recommendations {body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles, pattern_tips}; quality_assessment {overall_confidence, photo_quality_issues, manual_input_recommended, accuracy_note}.`;
+    const photosDescription = [
+      payload.imageDataUrl ? "uma foto FRONTAL (vista de frente, ombros nivelados)" : null,
+      payload.sideImageDataUrl ? "uma foto LATERAL (perfil 90°, usada para profundidade sagital, cifose/lordose, projeção abdominal e glútea)" : null,
+    ].filter(Boolean).join(" e ");
+
+    const sideGuidance = payload.sideImageDataUrl
+      ? "A SEGUNDA imagem enviada é a foto LATERAL: use-a OBRIGATORIAMENTE para estimar profundidade abdominal (sagittal abdominal diameter), projeção do glúteo, alinhamento postural (cabeça/ombro/quadril/joelho) e refinar cintura/quadril cruzando com a frontal. Não confunda largura (frontal) com profundidade (lateral)."
+      : "Apenas foto frontal disponível — sinalize que medidas de profundidade são estimadas com menor confiança.";
+
+    const userText = `Você recebeu ${photosDescription || "nenhuma foto"}. ${sideGuidance} Dados opcionais: altura=${payload.heightCm ?? "não informado"}cm, peso=${payload.weightKg ?? "não informado"}kg, idade=${payload.age ?? "não informado"}, gênero/modelagem=${payload.gender ?? "não informado"}, objetivo=${payload.shoppingGoal ?? "compra online e avaliação física"}, bioimpedância=${JSON.stringify(payload.bioimpedance ?? {})}. ${calibrationText} Contexto da loja/produto extraído do link: ${productContext}. Retorne exatamente um JSON no formato: scan_id, analyzed_at, input_data {photos_provided, user_provided_height_cm, user_provided_weight_kg, age, gender, goal, scale_calibration}, measurements com cada medida como {value, confidence} para height_cm, weight_kg, bust_cm, underbust_cm, waist_cm, hip_cm, shoulder_width_cm, inseam_cm, outseam_cm, arm_length_cm, thigh_cm, neck_cm, torso_length_cm; body_analysis {bmi, bmi_category, body_fat_estimate_pct, body_fat_range_low, body_fat_range_high, body_fat_method, body_fat_methodology_note, body_fat_breakdown:[{method, value, reference}], muscle_mass_kg, visceral_fat, basal_metabolic_rate_kcal, tissue_distribution, body_fat_disclaimer, body_type, waist_to_hip_ratio, abdominal_risk}; clothing_sizes {size_brazil, size_international, size_european, pants_number_brazil, bra_size, shoe_size_br}; tailoring {hem_adjustment_cm, hem_note, sleeve_adjustment_cm, sleeve_note, shoulder_fit, waist_fit_suggestion}; style_recommendations {body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles, pattern_tips}; quality_assessment {overall_confidence, photo_quality_issues, manual_input_recommended, accuracy_note}.`;
+
+    const imageMessages: Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }> = [];
+    if (payload.imageDataUrl) {
+      imageMessages.push({ type: "text", text: "IMAGEM 1 — FOTO FRONTAL:" });
+      imageMessages.push({ type: "image_url", image_url: { url: payload.imageDataUrl } });
+    }
+    if (payload.sideImageDataUrl) {
+      imageMessages.push({ type: "text", text: "IMAGEM 2 — FOTO LATERAL (perfil 90°):" });
+      imageMessages.push({ type: "image_url", image_url: { url: payload.sideImageDataUrl } });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -249,15 +268,14 @@ Use fotos frontal/lateral quando existirem, medidas manuais e contexto da págin
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: system },
           {
             role: "user",
             content: [
               { type: "text", text: userText },
-              ...(payload.imageDataUrl ? [{ type: "image_url", image_url: { url: payload.imageDataUrl } }] : []),
-              ...(payload.sideImageDataUrl ? [{ type: "image_url", image_url: { url: payload.sideImageDataUrl } }] : []),
+              ...imageMessages,
             ],
           },
         ],
