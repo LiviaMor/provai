@@ -123,11 +123,19 @@ type BrandSizeOption = {
   hip?: number[];
 };
 
+type CapturePreferences = {
+  cameraDistanceM?: number;
+  supportHeightCm?: number;
+  photoTypes?: Array<"front" | "side">;
+  updatedAt?: string;
+};
+
 type UserProfile = {
   user_id: string;
   display_name?: string | null;
   account_type: "b2c" | "b2b";
   company_name?: string | null;
+  capture_preferences?: CapturePreferences | null;
 };
 
 type ColorChip = { name: string; hex: string };
@@ -559,6 +567,8 @@ const Index = () => {
   }>({ front: [], side: [] });
   const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
   const [readyChecks, setReadyChecks] = useState<Record<string, boolean>>({});
+  const [cameraDistanceM, setCameraDistanceM] = useState<string>("");
+  const [supportHeightCm, setSupportHeightCm] = useState<string>("");
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
@@ -598,17 +608,23 @@ const Index = () => {
   }, [currentMeasurements]);
 
   useEffect(() => {
+    const applyPrefs = (prefs?: CapturePreferences | null) => {
+      if (!prefs) return;
+      if (typeof prefs.cameraDistanceM === "number") setCameraDistanceM((v) => v || String(prefs.cameraDistanceM));
+      if (typeof prefs.supportHeightCm === "number") setSupportHeightCm((v) => v || String(prefs.supportHeightCm));
+    };
     const ensureProfile = async (id: string, metadata?: Record<string, unknown>) => {
-      const { data } = await (supabase as any).from("profiles").select("user_id, display_name, account_type, company_name").eq("user_id", id).maybeSingle();
-      if (data) return setProfile(data);
+      const { data } = await (supabase as any).from("profiles").select("user_id, display_name, account_type, company_name, capture_preferences").eq("user_id", id).maybeSingle();
+      if (data) { setProfile(data); applyPrefs(data.capture_preferences); return; }
       const fallbackProfile = {
         user_id: id,
         display_name: String(metadata?.full_name ?? metadata?.name ?? ""),
         avatar_url: String(metadata?.avatar_url ?? ""),
         account_type: "b2c",
       };
-      const { data: created } = await (supabase as any).from("profiles").insert(fallbackProfile).select("user_id, display_name, account_type, company_name").single();
+      const { data: created } = await (supabase as any).from("profiles").insert(fallbackProfile).select("user_id, display_name, account_type, company_name, capture_preferences").single();
       setProfile(created ?? fallbackProfile);
+      applyPrefs(created?.capture_preferences);
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -781,6 +797,17 @@ const Index = () => {
       }
     }
 
+    const photoTypes: Array<"front" | "side"> = [
+      ...(frontPreview ? ["front" as const] : []),
+      ...(sidePreview ? ["side" as const] : []),
+    ];
+    const captureParams: CapturePreferences = {
+      cameraDistanceM: parseNumber(cameraDistanceM),
+      supportHeightCm: parseNumber(supportHeightCm),
+      photoTypes,
+      updatedAt: new Date().toISOString(),
+    };
+
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
       title: "Avaliação provAI",
@@ -792,9 +819,25 @@ const Index = () => {
       measurements: result.measurements,
       size_recommendations: result.sizeRecommendations ?? {},
       style_recommendations: result.styleRecommendations ?? [],
-      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData, storedPhotos: storedPhotos ?? null },
+      fitness_assessment: {
+        ...(result.fitnessAssessment ?? {}),
+        bioimpedance: bioimpedanceData,
+        storedPhotos: storedPhotos ?? null,
+        captureParams,
+      },
       notes,
     });
+
+    // Salva os últimos parâmetros de captura no perfil para reaproveitar na próxima avaliação.
+    if (captureParams.cameraDistanceM || captureParams.supportHeightCm || photoTypes.length) {
+      const { data: updated } = await (supabase as any)
+        .from("profiles")
+        .update({ capture_preferences: captureParams })
+        .eq("user_id", userId)
+        .select("user_id, display_name, account_type, company_name, capture_preferences")
+        .maybeSingle();
+      if (updated) setProfile(updated);
+    }
   };
 
   const analyze = async (event?: FormEvent<HTMLFormElement>) => {
@@ -1311,6 +1354,31 @@ const Index = () => {
                       <option value="a4">Folha A4 (29,7 × 21,0 cm)</option>
                       <option value="banknote_brl">Cédula R$ (14,2 × 6,5 cm)</option>
                     </select>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-dashed bg-secondary/40 p-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold uppercase tracking-wider text-foreground">📐 Parâmetros de captura</span>
+                    {profile?.capture_preferences?.updatedAt && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Última calibração: {new Date(profile.capture_preferences.updatedAt).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-muted-foreground">Salvamos automaticamente para você repetir o mesmo enquadramento na próxima foto e ganhar precisão comparativa.</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="camera-distance" className="text-[11px] font-bold">Distância da câmera (m)</Label>
+                      <Input id="camera-distance" inputMode="decimal" placeholder="2,5" value={cameraDistanceM} onChange={(e) => setCameraDistanceM(e.target.value)} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="support-height" className="text-[11px] font-bold">Altura do apoio/tripé (cm)</Label>
+                      <Input id="support-height" inputMode="decimal" placeholder="110" value={supportHeightCm} onChange={(e) => setSupportHeightCm(e.target.value)} className="h-9 text-xs" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                    <span className={`rounded-full px-2 py-0.5 ${frontPreview ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{frontPreview ? "✓" : "○"} Frontal</span>
+                    <span className={`rounded-full px-2 py-0.5 ${sidePreview ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{sidePreview ? "✓" : "○"} Lateral</span>
                   </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
