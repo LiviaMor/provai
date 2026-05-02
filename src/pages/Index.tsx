@@ -1177,7 +1177,22 @@ const Index = () => {
         {(mode === "photo" || mode === "manual") && (
           <form onSubmit={analyze} className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div className="space-y-4 rounded-2xl border bg-card/80 p-5 shadow-panel backdrop-blur">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setMode("home")}>← Voltar</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => {
+                setFrontPreview("");
+                setSidePreview("");
+                setManual({});
+                setBioimpedance({});
+                setBioFileName("");
+                setAnalysis(null);
+                setTryon(null);
+                setGarmentPreview("");
+                setScaleCalibration({ front: null, side: null });
+                setCalibrationHistory({ front: [], side: [] });
+                setCalibratingSide(null);
+                setConsent(false);
+                try { sessionStorage.removeItem(TEMP_PHOTOS_KEY); } catch {}
+                setMode("home");
+              }}>← Voltar</Button>
               <h2 className="font-display text-3xl font-semibold">{mode === "photo" ? "Captura guiada" : "Medidas manuais"}</h2>
               <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. Você pode tirar uma foto na hora ou enviar uma imagem da galeria.</p>
               <div className="grid gap-2">
