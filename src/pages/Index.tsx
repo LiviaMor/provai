@@ -174,13 +174,13 @@ const measureLabels: Record<string, string> = {
   torso_length_cm: "Tronco",
 };
 
-const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: string }> = [
-  { key: "height_cm", label: "Altura (cm)", placeholder: "170" },
-  { key: "estimated_weight_kg", label: "Peso (kg)", placeholder: "68" },
-  { key: "bust_cm", label: "Busto/Tórax (cm)", placeholder: "92" },
+const manualFields: Array<{ key: MeasurementKey; label: string; placeholder: string; recommended?: boolean; hint?: string }> = [
+  { key: "height_cm", label: "Altura (cm)", placeholder: "170", recommended: true, hint: "Calibra a escala da foto e melhora todas as medidas derivadas." },
+  { key: "estimated_weight_kg", label: "Peso (kg)", placeholder: "68", recommended: true, hint: "Refina IMC, % gordura estimada e recomendação de tamanho." },
+  { key: "bust_cm", label: "Busto/Tórax (cm)", placeholder: "92", recommended: true, hint: "Essencial para tops, vestidos e blazers." },
   { key: "underbust_cm", label: "Abaixo do busto (cm)", placeholder: "76" },
-  { key: "waist_cm", label: "Cintura (cm)", placeholder: "74" },
-  { key: "hip_cm", label: "Quadril (cm)", placeholder: "99" },
+  { key: "waist_cm", label: "Cintura (cm)", placeholder: "74", recommended: true, hint: "Define silhueta e tamanho de calça/saia/vestido." },
+  { key: "hip_cm", label: "Quadril (cm)", placeholder: "99", recommended: true, hint: "Crítico para calça, saia e vestido — combina com a cintura." },
   { key: "thigh_cm", label: "Coxa (cm)", placeholder: "58" },
   { key: "inseam_cm", label: "Comprimento da perna (cm)", placeholder: "76" },
   { key: "arm_length_cm", label: "Comprimento do braço (cm)", placeholder: "58" },
