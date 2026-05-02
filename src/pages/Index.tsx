@@ -519,6 +519,10 @@ const Index = () => {
     front?: { px_per_cm: number; marker_label: string; confidence: number | null };
     side?: { px_per_cm: number; marker_label: string; confidence: number | null };
   }>({});
+  const [calibrationHistory, setCalibrationHistory] = useState<{
+    front: Array<{ px_per_cm: number; marker_label: string; confidence: number | null; at: number }>;
+    side: Array<{ px_per_cm: number; marker_label: string; confidence: number | null; at: number }>;
+  }>({ front: [], side: [] });
   const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
 
   const currentMeasurements = analysis?.measurements ?? {};
