@@ -57,8 +57,7 @@ const safeProductUrl = (raw?: string) => {
   try {
     const url = new URL(raw);
     if (!["https:", "http:"].includes(url.protocol)) return undefined;
-    const host = url.hostname.toLowerCase();
-    if (host === "localhost" || host.endsWith(".local") || host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return undefined;
+    if (isBlockedHost(url.hostname)) return undefined;
     return url.toString();
   } catch {
     return undefined;
