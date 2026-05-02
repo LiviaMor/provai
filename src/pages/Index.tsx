@@ -1105,7 +1105,7 @@ const Index = () => {
     pdf.roundedRect(14, 12, 182, 22, 4, 4, "F");
     pdf.setTextColor(250, 248, 245);
     pdf.setFontSize(18);
-    pdf.text("Encaixe", 20, 26);
+    pdf.text("provAI", 20, 26);
     pdf.setFontSize(10);
     pdf.text("Laudo de medidas e recomendação de compra", 52, 26);
     pdf.setTextColor(20, 31, 61);
