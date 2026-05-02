@@ -184,7 +184,7 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <Button className="rounded-full" onClick={() => navigate("/")}>
+            <Button className="rounded-full" onClick={() => navigate("/auth")}>
               Ir para login <ArrowRight className="h-4 w-4" />
             </Button>
             <Link to="/coloracao" className="text-sm text-center text-muted-foreground hover:text-foreground">
