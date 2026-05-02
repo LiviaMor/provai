@@ -783,7 +783,7 @@ const Index = () => {
 
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
-      title: "Avaliação Encaixe",
+      title: "Avaliação provAI",
       source: storedPhotos ? `photo-${accountType}-stored` : (frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`),
       gender,
       objective,
@@ -842,7 +842,7 @@ const Index = () => {
     setAnalysis(result);
     setMode("results");
     await saveHistory(result);
-    toast.success("Análise Encaixe concluída.");
+    toast.success("Análise provAI concluída.");
   };
 
   const onGarmentChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -948,7 +948,7 @@ const Index = () => {
         throw decodeErr;
       }
 
-      const filename = `provador-encaixe-${Date.now()}.${extFromMime(detectedMime)}`;
+      const filename = `provai-tryon-${Date.now()}.${extFromMime(detectedMime)}`;
       const a = document.createElement("a");
       a.href = objectUrl;
       a.download = filename;
@@ -1041,7 +1041,7 @@ const Index = () => {
 
         const a = document.createElement("a");
         a.href = url;
-        a.download = `provador-encaixe-${Date.now()}.png`;
+        a.download = `provai-tryon-${Date.now()}.png`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -1132,7 +1132,7 @@ const Index = () => {
       y += lines.length * 6;
     });
     pdf.text("Observação: esta é uma estimativa. Consulte um profissional de saúde.", 16, Math.min(y + 8, 282));
-    pdf.save("relatorio-encaixe.pdf");
+    pdf.save("relatorio-provai.pdf");
   };
 
   const signIn = async () => {
@@ -1435,7 +1435,7 @@ const Index = () => {
         {mode === "results" && analysis && (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card/80 p-4 shadow-panel backdrop-blur">
-              <div><p className="text-sm font-bold text-primary">Resultado Encaixe</p><h2 className="font-display text-3xl font-semibold">{confidenceLabel(analysis.confidence)}</h2></div>
+              <div><p className="text-sm font-bold text-primary">Resultado provAI</p><h2 className="font-display text-3xl font-semibold">{confidenceLabel(analysis.confidence)}</h2></div>
               <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setMode("photo")}><Camera className="size-4" /> Nova análise</Button><Button type="button" variant="scan" onClick={exportPdf}><Download className="size-4" /> PDF</Button></div>
             </div>
 

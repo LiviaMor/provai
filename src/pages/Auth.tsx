@@ -127,7 +127,7 @@ const Auth = () => {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-primary text-primary-foreground grid place-items-center mb-2">
                 <Sparkles className="h-6 w-6" />
               </div>
-              <CardTitle className="font-display text-2xl">Sua conta Ultraprovador</CardTitle>
+              <CardTitle className="font-display text-2xl">Sua conta provAI</CardTitle>
               <CardDescription>Acesse seu histórico, coloração e favoritos.</CardDescription>
             </CardHeader>
             <CardContent>
