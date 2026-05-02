@@ -608,9 +608,11 @@ const Index = () => {
       if (kind === "front") {
         setFrontPreview(String(reader.result));
         setScaleCalibration((prev) => ({ ...prev, front: undefined }));
+        setCalibrationHistory((prev) => ({ ...prev, front: [] }));
       } else {
         setSidePreview(String(reader.result));
         setScaleCalibration((prev) => ({ ...prev, side: undefined }));
+        setCalibrationHistory((prev) => ({ ...prev, side: [] }));
       }
       toast.success("Foto salva temporariamente neste dispositivo.");
     };
