@@ -514,6 +514,12 @@ const Index = () => {
   const [tryon, setTryon] = useState<TryonResult | null>(null);
   const [isTryingOn, setIsTryingOn] = useState(false);
   const [isDownloadingTryon, setIsDownloadingTryon] = useState(false);
+  const [markerType, setMarkerType] = useState<"card" | "a4" | "banknote_brl">("card");
+  const [scaleCalibration, setScaleCalibration] = useState<{
+    front?: { px_per_cm: number; marker_label: string; confidence: number | null };
+    side?: { px_per_cm: number; marker_label: string; confidence: number | null };
+  }>({});
+  const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
