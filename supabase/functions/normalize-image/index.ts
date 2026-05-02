@@ -136,6 +136,9 @@ Deno.serve(async (req) => {
     });
   }
 
+  const authError = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json().catch(() => ({}));
     const src: string | undefined = body?.src ?? body?.image ?? body?.url;
