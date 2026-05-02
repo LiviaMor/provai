@@ -1253,7 +1253,7 @@ const Index = () => {
                 <Button type="button" variant="outline" size="lg" onClick={() => setMode("manual")}><Ruler className="size-5" /> Inserir medidas manualmente</Button>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                {["1 análise grátis/mês", "Premium R$19,90/mês", "B2B API em breve"].map((item) => <div key={item} className="rounded-2xl border bg-card/70 p-4 text-sm font-bold shadow-panel">{item}</div>)}
+                {["Starter R$49,90/mês (1–5)", "Growth R$69,90/mês (6–20)", "Scale R$99,90/mês (21–50)"].map((item) => <div key={item} className="rounded-2xl border bg-card/70 p-4 text-sm font-bold shadow-panel">{item}</div>)}
               </div>
             </div>
             <div className="relative mx-auto aspect-[3/4] w-full max-w-sm rounded-[2rem] border bg-panel-glow p-8 shadow-panel">
