@@ -9,6 +9,7 @@ import ColoracaoUpload from "./pages/coloracao/Upload.tsx";
 import ColoracaoProcessing from "./pages/coloracao/Processing.tsx";
 import ColoracaoReport from "./pages/coloracao/Report.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import Auth from "./pages/Auth.tsx";
 
 const queryClient = new QueryClient();
 
