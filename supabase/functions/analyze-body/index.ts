@@ -16,6 +16,10 @@ type BodyPayload = {
   productUrl?: string;
   manualMeasurements?: Record<string, number>;
   bioimpedance?: Record<string, number | string | undefined>;
+  scaleCalibration?: {
+    front?: { px_per_cm: number; marker_label?: string; confidence?: number | null };
+    side?: { px_per_cm: number; marker_label?: string; confidence?: number | null };
+  };
 };
 
 const isFiniteNumber = (value: unknown, min: number, max: number) =>
