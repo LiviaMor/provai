@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { PosturalGrid } from "@/components/PosturalGrid";
 
 type MeasurementKey = "height_cm" | "estimated_weight_kg" | "weight_kg" | "bust_cm" | "underbust_cm" | "waist_cm" | "hip_cm" | "inseam_cm" | "outseam_cm" | "arm_length_cm" | "shoulder_width_cm" | "neck_cm" | "thigh_cm" | "torso_length_cm";
 
@@ -1073,7 +1074,7 @@ const Index = () => {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
-                      {frontPreview ? <><img src={frontPreview} alt="Preview da foto frontal para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview frente</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto de frente</span>}
+                      {frontPreview ? <><img src={frontPreview} alt="Preview da foto frontal para análise de medidas" className="h-full w-full object-cover" /><PosturalGrid variant="front" label="Frente" /><span className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview frente</span></> : <><PosturalGrid variant="front" label="Frente" /><span className="relative z-20 grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto de frente</span></>}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Label htmlFor="front-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
@@ -1082,7 +1083,7 @@ const Index = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
-                      {sidePreview ? <><img src={sidePreview} alt="Preview da foto lateral para análise de medidas" className="h-full w-full object-cover" /><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview lateral</span></> : <span className="grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto lateral</span>}
+                      {sidePreview ? <><img src={sidePreview} alt="Preview da foto lateral para análise de medidas" className="h-full w-full object-cover" /><PosturalGrid variant="side" label="Lateral" /><span className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-card/90 px-3 py-1 text-xs font-bold">Preview lateral</span></> : <><PosturalGrid variant="side" label="Lateral" /><span className="relative z-20 grid justify-items-center gap-3 p-6 text-muted-foreground"><Upload className="size-8 text-primary" /> Foto lateral</span></>}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Label htmlFor="side-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
