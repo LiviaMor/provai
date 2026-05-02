@@ -608,17 +608,23 @@ const Index = () => {
   }, [currentMeasurements]);
 
   useEffect(() => {
+    const applyPrefs = (prefs?: CapturePreferences | null) => {
+      if (!prefs) return;
+      if (typeof prefs.cameraDistanceM === "number") setCameraDistanceM((v) => v || String(prefs.cameraDistanceM));
+      if (typeof prefs.supportHeightCm === "number") setSupportHeightCm((v) => v || String(prefs.supportHeightCm));
+    };
     const ensureProfile = async (id: string, metadata?: Record<string, unknown>) => {
-      const { data } = await (supabase as any).from("profiles").select("user_id, display_name, account_type, company_name").eq("user_id", id).maybeSingle();
-      if (data) return setProfile(data);
+      const { data } = await (supabase as any).from("profiles").select("user_id, display_name, account_type, company_name, capture_preferences").eq("user_id", id).maybeSingle();
+      if (data) { setProfile(data); applyPrefs(data.capture_preferences); return; }
       const fallbackProfile = {
         user_id: id,
         display_name: String(metadata?.full_name ?? metadata?.name ?? ""),
         avatar_url: String(metadata?.avatar_url ?? ""),
         account_type: "b2c",
       };
-      const { data: created } = await (supabase as any).from("profiles").insert(fallbackProfile).select("user_id, display_name, account_type, company_name").single();
+      const { data: created } = await (supabase as any).from("profiles").insert(fallbackProfile).select("user_id, display_name, account_type, company_name, capture_preferences").single();
       setProfile(created ?? fallbackProfile);
+      applyPrefs(created?.capture_preferences);
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
