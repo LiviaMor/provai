@@ -5,11 +5,38 @@
 // (usando ImageScript) garantindo um PNG válido como saída.
 
 import { decode as decodeImage, Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const BLOCKED_HOSTS = new Set(["localhost", "0.0.0.0", "::", "::1"]);
+const BLOCKED_PREFIXES = ["127.", "10.", "192.168.", "169.254.", "0."];
+const isBlockedHost = (hostRaw: string): boolean => {
+  const host = hostRaw.toLowerCase().replace(/^\[|\]$/g, "");
+  if (BLOCKED_HOSTS.has(host)) return true;
+  if (host.endsWith(".local") || host.endsWith(".internal")) return true;
+  if (BLOCKED_PREFIXES.some((p) => host.startsWith(p))) return true;
+  const m = host.match(/^172\.(\d+)\./);
+  if (m && +m[1] >= 16 && +m[1] <= 31) return true;
+  if (host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return true;
+  return false;
+};
+
+const requireAuth = async (req: Request): Promise<Response | null> => {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
+  const { data, error } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+  if (error || !data?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  return null;
 };
 
 const SUPPORTED_INPUT_MIMES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
@@ -62,7 +89,9 @@ async function bytesFromInput(src: string): Promise<{ bytes: Uint8Array; mime: s
     throw new Error("URL inválida");
   }
   if (!/^https?:$/.test(url.protocol)) throw new Error("Protocolo não suportado");
-  const res = await fetch(url.toString());
+  if (isBlockedHost(url.hostname)) throw new Error("Host não permitido");
+  const res = await fetch(url.toString(), { redirect: "manual" });
+  if (res.status >= 300 && res.status < 400) throw new Error("Redirecionamentos não são permitidos");
   if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar imagem`);
   const buf = new Uint8Array(await res.arrayBuffer());
   if (buf.length === 0) throw new Error("Resposta vazia");
@@ -106,6 +135,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  const authError = await requireAuth(req);
+  if (authError) return authError;
 
   try {
     const body = await req.json().catch(() => ({}));

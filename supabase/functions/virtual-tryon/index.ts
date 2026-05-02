@@ -1,8 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const requireAuth = async (req: Request): Promise<Response | null> => {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
+  const { data, error } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+  if (error || !data?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  return null;
+};
+
+const BLOCKED_HOSTS = new Set(["localhost", "0.0.0.0", "::", "::1"]);
+const BLOCKED_PREFIXES = ["127.", "10.", "192.168.", "169.254.", "0."];
+const isBlockedHost = (hostRaw: string): boolean => {
+  const host = hostRaw.toLowerCase().replace(/^\[|\]$/g, "");
+  if (BLOCKED_HOSTS.has(host)) return true;
+  if (host.endsWith(".local") || host.endsWith(".internal")) return true;
+  if (BLOCKED_PREFIXES.some((p) => host.startsWith(p))) return true;
+  const m = host.match(/^172\.(\d+)\./);
+  if (m && +m[1] >= 16 && +m[1] <= 31) return true;
+  if (host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return true;
+  return false;
 };
 
 type TryonPayload = {
@@ -21,6 +48,7 @@ const safeUrl = (raw?: string) => {
   try {
     const url = new URL(raw);
     if (!["https:", "http:"].includes(url.protocol)) return undefined;
+    if (isBlockedHost(url.hostname)) return undefined;
     return url.toString();
   } catch {
     return undefined;
@@ -75,10 +103,14 @@ const fetchProductImages = async (raw?: string): Promise<{ images: string[]; con
 
 const urlToDataUrl = async (url: string): Promise<string | undefined> => {
   try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return undefined;
+    if (isBlockedHost(parsed.hostname)) return undefined;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, redirect: "manual" });
     clearTimeout(timeout);
+    if (response.status >= 300 && response.status < 400) return undefined;
     if (!response.ok) return undefined;
     const contentType = response.headers.get("content-type") ?? "image/jpeg";
     const buffer = new Uint8Array(await response.arrayBuffer());
@@ -93,6 +125,9 @@ const urlToDataUrl = async (url: string): Promise<string | undefined> => {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const authError = await requireAuth(req);
+  if (authError) return authError;
 
   try {
     const payload = (await req.json()) as TryonPayload;
