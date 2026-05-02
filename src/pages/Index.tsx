@@ -1114,6 +1114,26 @@ const Index = () => {
 
             <div className="space-y-4 rounded-2xl border bg-panel-glow p-4 shadow-panel backdrop-blur sm:p-5">
               {mode === "photo" && (
+                <>
+                <div className="rounded-2xl border border-dashed bg-secondary/40 p-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold uppercase tracking-wider text-foreground">Calibração de escala</span>
+                    <span className="text-muted-foreground">— posicione um marcador físico de tamanho conhecido na foto (encostado no corpo ou no chão, sem dobras) para converter pixels em cm com precisão.</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Label htmlFor="marker-type" className="text-xs font-bold">Marcador:</Label>
+                    <select
+                      id="marker-type"
+                      value={markerType}
+                      onChange={(e) => setMarkerType(e.target.value as typeof markerType)}
+                      className="h-9 rounded-md border bg-background px-2 text-xs font-semibold"
+                    >
+                      <option value="card">Cartão (8,56 × 5,40 cm)</option>
+                      <option value="a4">Folha A4 (29,7 × 21,0 cm)</option>
+                      <option value="banknote_brl">Cédula R$ (14,2 × 6,5 cm)</option>
+                    </select>
+                  </div>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
@@ -1123,6 +1143,9 @@ const Index = () => {
                       <Label htmlFor="front-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
                       <Label htmlFor="front-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload</Label>
                     </div>
+                    <Button type="button" variant="outline" size="sm" disabled={!frontPreview || calibratingSide === "front"} onClick={() => calibrateScale("front")} className="w-full">
+                      {calibratingSide === "front" ? "Detectando marcador…" : scaleCalibration.front ? `✓ ${scaleCalibration.front.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
@@ -1132,12 +1155,16 @@ const Index = () => {
                       <Label htmlFor="side-camera" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Camera className="size-4" /> Foto</Label>
                       <Label htmlFor="side-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> Upload</Label>
                     </div>
+                    <Button type="button" variant="outline" size="sm" disabled={!sidePreview || calibratingSide === "side"} onClick={() => calibrateScale("side")} className="w-full">
+                      {calibratingSide === "side" ? "Detectando marcador…" : scaleCalibration.side ? `✓ ${scaleCalibration.side.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
+                    </Button>
                   </div>
                   <Input id="front-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="front-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="side-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
                   <Input id="side-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "side")} className="sr-only" />
                 </div>
+                </>
               )}
 
               <div className="grid grid-cols-2 gap-3">
