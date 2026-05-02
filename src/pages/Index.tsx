@@ -1212,10 +1212,10 @@ const Index = () => {
   return (
     <main className="min-h-screen bg-app-radial text-foreground">
       <section className="container min-h-screen max-w-6xl py-5 sm:py-8">
-        <nav className="mb-5 flex items-center justify-between rounded-2xl border border-border/60 bg-card/70 px-4 py-3 shadow-panel backdrop-blur-xl">
+        <nav className="mb-5 flex items-center justify-between rounded-2xl border bg-card/70 px-4 py-3 shadow-panel backdrop-blur-xl border-fuchsia-500">
           <div className="flex items-center gap-3">
             <span className="relative grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground shadow-glow">
-              <ScanLine className="size-5" />
+              <ScanLine className="size-5 bg-fuchsia-400" />
               <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-glow" />
             </span>
             <div className="flex flex-col leading-none">
