@@ -48,6 +48,7 @@ const safeUrl = (raw?: string) => {
   try {
     const url = new URL(raw);
     if (!["https:", "http:"].includes(url.protocol)) return undefined;
+    if (isBlockedHost(url.hostname)) return undefined;
     return url.toString();
   } catch {
     return undefined;
