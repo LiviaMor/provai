@@ -1348,7 +1348,17 @@ const Index = () => {
                 <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
               </div>
               {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
-              <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
+              {(() => {
+                const requiredKeys = ["pose","lateral","distancia","enquadramento","roupa","luz","camera","marcador"];
+                const allReady = requiredKeys.every((k) => readyChecks[k]);
+                const blocked = mode === "photo" && !allReady;
+                return (
+                  <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing || blocked} className="w-full">
+                    {isAnalyzing ? "Processando" : blocked ? "Confirme o checklist para enviar" : "Gerar avaliação"}
+                    <ArrowRight className="size-4" />
+                  </Button>
+                );
+              })()}
             </div>
           </form>
         )}
