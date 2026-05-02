@@ -10,6 +10,7 @@ import ColoracaoProcessing from "./pages/coloracao/Processing.tsx";
 import ColoracaoReport from "./pages/coloracao/Report.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Auth from "./pages/Auth.tsx";
+import Planos from "./pages/Planos.tsx";
 
 const queryClient = new QueryClient();
 
