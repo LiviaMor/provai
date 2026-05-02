@@ -557,6 +557,7 @@ const Index = () => {
     side: Array<{ px_per_cm: number; marker_label: string; confidence: number | null; at: number }>;
   }>({ front: [], side: [] });
   const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
+  const [readyChecks, setReadyChecks] = useState<Record<string, boolean>>({});
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
