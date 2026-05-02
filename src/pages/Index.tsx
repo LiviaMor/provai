@@ -633,13 +633,15 @@ const Index = () => {
         toast.error(data?.reason ?? "Marcador não detectado. Reenquadre a foto deixando o marcador bem visível.");
         return;
       }
-      setScaleCalibration((prev) => ({
+      const entry = {
+        px_per_cm: data.px_per_cm,
+        marker_label: data.marker_label,
+        confidence: data.confidence,
+      };
+      setScaleCalibration((prev) => ({ ...prev, [kind]: entry }));
+      setCalibrationHistory((prev) => ({
         ...prev,
-        [kind]: {
-          px_per_cm: data.px_per_cm,
-          marker_label: data.marker_label,
-          confidence: data.confidence,
-        },
+        [kind]: [{ ...entry, at: Date.now() }, ...prev[kind]].slice(0, 5),
       }));
       toast.success(`Escala calibrada: ${data.px_per_cm} px/cm (${data.marker_label.split(" — ")[0]}).`);
     } catch (err) {
