@@ -1186,11 +1186,13 @@ const Index = () => {
         {mode === "home" && (
           <div className="grid min-h-[calc(100vh-120px)] items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="animate-reveal space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border bg-card/70 px-4 py-2 text-sm font-bold text-muted-foreground shadow-panel">
-                <Sparkles className="size-4 text-accent" /> Medidas, estilo e caimento por IA
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-card/70 px-4 py-2 text-sm font-bold text-muted-foreground shadow-panel backdrop-blur">
+                <Sparkles className="size-4 text-accent" /> Provador inteligente — medidas, estilo e caimento por IA
               </div>
-              <h1 className="font-display text-5xl font-semibold leading-tight text-balance sm:text-6xl">Descubra seu tamanho ideal em segundos</h1>
-              <p className="max-w-xl text-lg leading-8 text-muted-foreground">Uma experiência mobile-first para estimar medidas, cruzar links de lojas, sugerir tamanhos e orientar escolhas de estilo com tom leve e acolhedor.</p>
+              <h1 className="font-display text-5xl font-semibold leading-tight text-balance sm:text-6xl">
+                Seu provador <span className="bg-gradient-to-r from-accent via-primary to-primary-glow bg-clip-text text-transparent">com IA</span>, em segundos.
+              </h1>
+              <p className="max-w-xl text-lg leading-8 text-muted-foreground">Tire uma foto e a <strong className="text-foreground">prov<span className="text-accent">AI</span></strong> estima medidas, sugere tamanhos por loja e mostra como a roupa cai — tudo com privacidade e tom acolhedor.</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Button type="button" variant="hero" size="lg" onClick={() => setMode("photo")}><Camera className="size-5" /> Analisar pelo celular</Button>
                 <Button type="button" variant="outline" size="lg" onClick={() => setMode("manual")}><Ruler className="size-5" /> Inserir medidas manualmente</Button>
