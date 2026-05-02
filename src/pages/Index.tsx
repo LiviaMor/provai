@@ -540,6 +540,7 @@ const Index = () => {
   const [bioimpedance, setBioimpedance] = useState<Record<string, string>>({});
   const [bioFileName, setBioFileName] = useState("");
   const [consent, setConsent] = useState(false);
+  const [storeImages, setStoreImages] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [history, setHistory] = useState(historySeed);
