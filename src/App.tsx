@@ -9,6 +9,7 @@ import ColoracaoUpload from "./pages/coloracao/Upload.tsx";
 import ColoracaoProcessing from "./pages/coloracao/Processing.tsx";
 import ColoracaoReport from "./pages/coloracao/Report.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import Auth from "./pages/Auth.tsx";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
         <Route path="/coloracao/relatorio" element={<ColoracaoReport />} />
         <Route path="/coloracao/exemplo" element={<ColoracaoReport demo />} />
         <Route path="/painel" element={<Dashboard />} />
+        <Route path="/auth" element={<Auth />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
