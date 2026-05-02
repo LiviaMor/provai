@@ -783,7 +783,7 @@ const Index = () => {
 
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
-      title: "Avaliação Encaixe",
+      title: "Avaliação provAI",
       source: storedPhotos ? `photo-${accountType}-stored` : (frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`),
       gender,
       objective,
@@ -842,7 +842,7 @@ const Index = () => {
     setAnalysis(result);
     setMode("results");
     await saveHistory(result);
-    toast.success("Análise Encaixe concluída.");
+    toast.success("Análise provAI concluída.");
   };
 
   const onGarmentChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -948,7 +948,7 @@ const Index = () => {
         throw decodeErr;
       }
 
-      const filename = `provador-encaixe-${Date.now()}.${extFromMime(detectedMime)}`;
+      const filename = `provai-tryon-${Date.now()}.${extFromMime(detectedMime)}`;
       const a = document.createElement("a");
       a.href = objectUrl;
       a.download = filename;
@@ -1041,7 +1041,7 @@ const Index = () => {
 
         const a = document.createElement("a");
         a.href = url;
-        a.download = `provador-encaixe-${Date.now()}.png`;
+        a.download = `provai-tryon-${Date.now()}.png`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -1105,7 +1105,7 @@ const Index = () => {
     pdf.roundedRect(14, 12, 182, 22, 4, 4, "F");
     pdf.setTextColor(250, 248, 245);
     pdf.setFontSize(18);
-    pdf.text("Encaixe", 20, 26);
+    pdf.text("provAI", 20, 26);
     pdf.setFontSize(10);
     pdf.text("Laudo de medidas e recomendação de compra", 52, 26);
     pdf.setTextColor(20, 31, 61);
@@ -1132,7 +1132,7 @@ const Index = () => {
       y += lines.length * 6;
     });
     pdf.text("Observação: esta é uma estimativa. Consulte um profissional de saúde.", 16, Math.min(y + 8, 282));
-    pdf.save("relatorio-encaixe.pdf");
+    pdf.save("relatorio-provai.pdf");
   };
 
   const signIn = async () => {
@@ -1157,10 +1157,18 @@ const Index = () => {
   return (
     <main className="min-h-screen bg-app-radial text-foreground">
       <section className="container min-h-screen max-w-6xl py-5 sm:py-8">
-        <nav className="mb-5 flex items-center justify-between rounded-2xl border bg-card/80 px-4 py-3 shadow-panel backdrop-blur">
-          <div className="flex items-center gap-2 font-display text-2xl font-semibold">
-            <span className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-glow"><ScanLine className="size-5" /></span>
-            Encaixe
+        <nav className="mb-5 flex items-center justify-between rounded-2xl border border-border/60 bg-card/70 px-4 py-3 shadow-panel backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            <span className="relative grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground shadow-glow">
+              <ScanLine className="size-5" />
+              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-glow" />
+            </span>
+            <div className="flex flex-col leading-none">
+              <span className="font-display text-2xl font-bold tracking-tight">
+                prov<span className="bg-gradient-to-r from-accent to-primary-glow bg-clip-text text-transparent">AI</span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">medidas · estilo · caimento</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {userId && (
@@ -1178,11 +1186,13 @@ const Index = () => {
         {mode === "home" && (
           <div className="grid min-h-[calc(100vh-120px)] items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="animate-reveal space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border bg-card/70 px-4 py-2 text-sm font-bold text-muted-foreground shadow-panel">
-                <Sparkles className="size-4 text-accent" /> Medidas, estilo e caimento por IA
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-card/70 px-4 py-2 text-sm font-bold text-muted-foreground shadow-panel backdrop-blur">
+                <Sparkles className="size-4 text-accent" /> Provador inteligente — medidas, estilo e caimento por IA
               </div>
-              <h1 className="font-display text-5xl font-semibold leading-tight text-balance sm:text-6xl">Descubra seu tamanho ideal em segundos</h1>
-              <p className="max-w-xl text-lg leading-8 text-muted-foreground">Uma experiência mobile-first para estimar medidas, cruzar links de lojas, sugerir tamanhos e orientar escolhas de estilo com tom leve e acolhedor.</p>
+              <h1 className="font-display text-5xl font-semibold leading-tight text-balance sm:text-6xl">
+                Seu provador <span className="bg-gradient-to-r from-accent via-primary to-primary-glow bg-clip-text text-transparent">com IA</span>, em segundos.
+              </h1>
+              <p className="max-w-xl text-lg leading-8 text-muted-foreground">Tire uma foto e a <strong className="text-foreground">prov<span className="text-accent">AI</span></strong> estima medidas, sugere tamanhos por loja e mostra como a roupa cai — tudo com privacidade e tom acolhedor.</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Button type="button" variant="hero" size="lg" onClick={() => setMode("photo")}><Camera className="size-5" /> Analisar pelo celular</Button>
                 <Button type="button" variant="outline" size="lg" onClick={() => setMode("manual")}><Ruler className="size-5" /> Inserir medidas manualmente</Button>
@@ -1435,7 +1445,7 @@ const Index = () => {
         {mode === "results" && analysis && (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card/80 p-4 shadow-panel backdrop-blur">
-              <div><p className="text-sm font-bold text-primary">Resultado Encaixe</p><h2 className="font-display text-3xl font-semibold">{confidenceLabel(analysis.confidence)}</h2></div>
+              <div><p className="text-sm font-bold text-primary">Resultado provAI</p><h2 className="font-display text-3xl font-semibold">{confidenceLabel(analysis.confidence)}</h2></div>
               <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setMode("photo")}><Camera className="size-4" /> Nova análise</Button><Button type="button" variant="scan" onClick={exportPdf}><Download className="size-4" /> PDF</Button></div>
             </div>
 
