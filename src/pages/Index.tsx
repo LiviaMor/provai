@@ -870,7 +870,10 @@ const Index = () => {
 
     setIsAnalyzing(false);
 
-    if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
+    if (error || data?.error) {
+      setMode(previousMode);
+      return toast.error(data?.error ?? "Não foi possível concluir a análise.");
+    }
 
     const result = normalizeAnalysis(data);
     // Medidas manuais informadas pelo usuário têm prioridade sobre a estimativa da IA.
