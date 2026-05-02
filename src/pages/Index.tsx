@@ -290,7 +290,7 @@ const normalizeMeasurements = (raw: unknown): Measurements => {
   const source = (raw ?? {}) as Record<string, unknown>;
   return Object.entries(source).reduce<Measurements>((acc, [key, value]) => {
     const numeric = typeof value === "object" && value ? Number((value as Record<string, unknown>).value) : Number(value);
-    if (Number.isFinite(numeric)) acc[key === "weight_kg" ? "estimated_weight_kg" : (key as MeasurementKey)] = numeric;
+    if (Number.isFinite(numeric) && numeric > 0) acc[key === "weight_kg" ? "estimated_weight_kg" : (key as MeasurementKey)] = numeric;
     return acc;
   }, {});
 };
@@ -848,9 +848,9 @@ const Index = () => {
     if (mode === "photo" && !frontPreview) return toast.error("Envie a foto de frente para iniciar.");
     if (mode === "manual" && !measurements.height_cm && !measurements.waist_cm) return toast.error("Informe pelo menos altura ou cintura.");
 
+    const previousMode = mode;
     setIsAnalyzing(true);
     setAnalysis(null);
-    setMode("photo");
 
     const { data, error } = await supabase.functions.invoke("analyze-body", {
       body: {
@@ -870,9 +870,14 @@ const Index = () => {
 
     setIsAnalyzing(false);
 
-    if (error || data?.error) return toast.error(data?.error ?? "Não foi possível concluir a análise.");
+    if (error || data?.error) {
+      setMode(previousMode);
+      return toast.error(data?.error ?? "Não foi possível concluir a análise.");
+    }
 
     const result = normalizeAnalysis(data);
+    // Medidas manuais informadas pelo usuário têm prioridade sobre a estimativa da IA.
+    result.measurements = { ...result.measurements, ...measurements };
     result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
     // Sempre cruzar com fórmulas locais como sanity-check, preservando valores vindos do backend.
     const local = calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) });
@@ -881,7 +886,14 @@ const Index = () => {
       ...result.fitnessAssessment,
       bodyFatBreakdown: result.fitnessAssessment?.bodyFatBreakdown?.length ? result.fitnessAssessment.bodyFatBreakdown : local.bodyFatBreakdown,
     };
-    setManual((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.measurements).map(([key, value]) => [key, String(value)])) }));
+    // Só preenche manual com valores da IA quando o usuário ainda não tinha digitado nada para aquela medida.
+    setManual((prev) => {
+      const next = { ...prev };
+      for (const [key, value] of Object.entries(result.measurements)) {
+        if (!next[key] && Number.isFinite(value as number) && (value as number) > 0) next[key] = String(value);
+      }
+      return next;
+    });
     setAnalysis(result);
     setMode("results");
     await saveHistory(result);
