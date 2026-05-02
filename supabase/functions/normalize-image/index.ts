@@ -89,7 +89,9 @@ async function bytesFromInput(src: string): Promise<{ bytes: Uint8Array; mime: s
     throw new Error("URL inválida");
   }
   if (!/^https?:$/.test(url.protocol)) throw new Error("Protocolo não suportado");
-  const res = await fetch(url.toString());
+  if (isBlockedHost(url.hostname)) throw new Error("Host não permitido");
+  const res = await fetch(url.toString(), { redirect: "manual" });
+  if (res.status >= 300 && res.status < 400) throw new Error("Redirecionamentos não são permitidos");
   if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar imagem`);
   const buf = new Uint8Array(await res.arrayBuffer());
   if (buf.length === 0) throw new Error("Resposta vazia");
