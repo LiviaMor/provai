@@ -756,10 +756,35 @@ const Index = () => {
       return;
     }
 
+    let storedPhotos: { front?: string; side?: string } | undefined;
+    if (storeImages && (frontPreview || sidePreview)) {
+      try {
+        const uploads: Array<["front" | "side", string]> = [];
+        if (frontPreview) uploads.push(["front", frontPreview]);
+        if (sidePreview) uploads.push(["side", sidePreview]);
+        const result: { front?: string; side?: string } = {};
+        for (const [kind, dataUrl] of uploads) {
+          const blob = await (await fetch(dataUrl)).blob();
+          const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
+          const path = `${userId}/${Date.now()}-${kind}.${ext}`;
+          const { error: upErr } = await supabase.storage.from("assessment-photos").upload(path, blob, {
+            contentType: blob.type || "image/jpeg",
+            upsert: false,
+          });
+          if (upErr) throw upErr;
+          result[kind] = path;
+        }
+        storedPhotos = result;
+      } catch (err) {
+        console.error("photo upload failed", err);
+        toast.error("Não foi possível salvar as fotos com segurança. As medidas serão salvas mesmo assim.");
+      }
+    }
+
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
       title: "Avaliação Encaixe",
-      source: frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`,
+      source: storedPhotos ? `photo-${accountType}-stored` : (frontPreview ? `photo-${accountType}-temporary` : `manual-${accountType}`),
       gender,
       objective,
       product_url: productUrl || null,
@@ -767,7 +792,7 @@ const Index = () => {
       measurements: result.measurements,
       size_recommendations: result.sizeRecommendations ?? {},
       style_recommendations: result.styleRecommendations ?? [],
-      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData },
+      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData, storedPhotos: storedPhotos ?? null },
       notes,
     });
   };
