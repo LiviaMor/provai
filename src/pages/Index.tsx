@@ -1154,6 +1154,7 @@ const Index = () => {
                     <Button type="button" variant="outline" size="sm" disabled={!frontPreview || calibratingSide === "front"} onClick={() => calibrateScale("front")} className="w-full">
                       {calibratingSide === "front" ? "Detectando marcador…" : scaleCalibration.front ? `✓ ${scaleCalibration.front.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
                     </Button>
+                    <CalibrationHistory entries={calibrationHistory.front} />
                   </div>
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
@@ -1166,6 +1167,7 @@ const Index = () => {
                     <Button type="button" variant="outline" size="sm" disabled={!sidePreview || calibratingSide === "side"} onClick={() => calibrateScale("side")} className="w-full">
                       {calibratingSide === "side" ? "Detectando marcador…" : scaleCalibration.side ? `✓ ${scaleCalibration.side.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
                     </Button>
+                    <CalibrationHistory entries={calibrationHistory.side} />
                   </div>
                   <Input id="front-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="front-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
