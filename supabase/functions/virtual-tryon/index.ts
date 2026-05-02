@@ -103,10 +103,14 @@ const fetchProductImages = async (raw?: string): Promise<{ images: string[]; con
 
 const urlToDataUrl = async (url: string): Promise<string | undefined> => {
   try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return undefined;
+    if (isBlockedHost(parsed.hostname)) return undefined;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, redirect: "manual" });
     clearTimeout(timeout);
+    if (response.status >= 300 && response.status < 400) return undefined;
     if (!response.ok) return undefined;
     const contentType = response.headers.get("content-type") ?? "image/jpeg";
     const buffer = new Uint8Array(await response.arrayBuffer());
