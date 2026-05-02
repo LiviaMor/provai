@@ -194,6 +194,7 @@ export type Database = {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
           avatar_url: string | null
+          capture_preferences: Json
           company_name: string | null
           created_at: string
           display_name: string | null
@@ -204,6 +205,7 @@ export type Database = {
         Insert: {
           account_type?: Database["public"]["Enums"]["account_type"]
           avatar_url?: string | null
+          capture_preferences?: Json
           company_name?: string | null
           created_at?: string
           display_name?: string | null
@@ -214,6 +216,7 @@ export type Database = {
         Update: {
           account_type?: Database["public"]["Enums"]["account_type"]
           avatar_url?: string | null
+          capture_preferences?: Json
           company_name?: string | null
           created_at?: string
           display_name?: string | null
