@@ -1192,6 +1192,7 @@ const Index = () => {
                 setConsent(false);
                 try { sessionStorage.removeItem(TEMP_PHOTOS_KEY); } catch {}
                 setMode("home");
+                toast.success("App reiniciado", { description: "Pronto para enviar uma nova foto." });
               }}>← Voltar</Button>
               <h2 className="font-display text-3xl font-semibold">{mode === "photo" ? "Captura guiada" : "Medidas manuais"}</h2>
               <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. Você pode tirar uma foto na hora ou enviar uma imagem da galeria.</p>
