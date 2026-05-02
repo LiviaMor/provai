@@ -104,6 +104,86 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_redemptions: {
+        Row: {
+          access_until: string
+          coupon_id: string
+          id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          access_until: string
+          coupon_id: string
+          id?: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          access_until?: string
+          coupon_id?: string
+          id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          access_days: number
+          active: boolean
+          audience: string
+          code: string
+          created_at: string
+          description: string | null
+          discount_percent: number
+          id: string
+          max_uses: number | null
+          updated_at: string
+          uses_count: number
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          access_days?: number
+          active?: boolean
+          audience?: string
+          code: string
+          created_at?: string
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          max_uses?: number | null
+          updated_at?: string
+          uses_count?: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          access_days?: number
+          active?: boolean
+          audience?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          max_uses?: number | null
+          updated_at?: string
+          uses_count?: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       favorite_products: {
         Row: {
           created_at: string
@@ -199,6 +279,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          premium_access_until: string | null
           updated_at: string
           user_id: string
         }
@@ -210,6 +291,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          premium_access_until?: string | null
           updated_at?: string
           user_id: string
         }
@@ -221,6 +303,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          premium_access_until?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -231,7 +314,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      redeem_coupon: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       account_type: "b2c" | "b2b"
