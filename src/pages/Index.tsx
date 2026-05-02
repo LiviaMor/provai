@@ -848,9 +848,9 @@ const Index = () => {
     if (mode === "photo" && !frontPreview) return toast.error("Envie a foto de frente para iniciar.");
     if (mode === "manual" && !measurements.height_cm && !measurements.waist_cm) return toast.error("Informe pelo menos altura ou cintura.");
 
+    const previousMode = mode;
     setIsAnalyzing(true);
     setAnalysis(null);
-    setMode("photo");
 
     const { data, error } = await supabase.functions.invoke("analyze-body", {
       body: {
