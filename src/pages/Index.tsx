@@ -959,6 +959,13 @@ const Index = () => {
     }
   };
 
+  const manualMeasurements = () =>
+    manualFields.reduce<Measurements>((acc, field) => {
+      const value = parseNumber(manual[field.key] ?? "");
+      if (value) acc[field.key] = value;
+      return acc;
+    }, {});
+
 
   const runTryon = async () => {
     if (!frontPreview) return toast.error("Tire ou envie uma foto sua de frente primeiro.");
