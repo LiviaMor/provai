@@ -601,18 +601,47 @@ const Index = () => {
     if (file.size > 7 * 1024 * 1024) return toast.error("Use uma foto de até 7MB para análise mais rápida.");
     const reader = new FileReader();
     reader.onload = () => {
-      kind === "front" ? setFrontPreview(String(reader.result)) : setSidePreview(String(reader.result));
+      if (kind === "front") {
+        setFrontPreview(String(reader.result));
+        setScaleCalibration((prev) => ({ ...prev, front: undefined }));
+      } else {
+        setSidePreview(String(reader.result));
+        setScaleCalibration((prev) => ({ ...prev, side: undefined }));
+      }
       toast.success("Foto salva temporariamente neste dispositivo.");
     };
     reader.readAsDataURL(file);
   };
 
-  const manualMeasurements = () =>
-    manualFields.reduce<Measurements>((acc, field) => {
-      const value = parseNumber(manual[field.key] ?? "");
-      if (value) acc[field.key] = value;
-      return acc;
-    }, {});
+  const calibrateScale = async (kind: "front" | "side") => {
+    const image = kind === "front" ? frontPreview : sidePreview;
+    if (!image) return toast.error(`Envie a foto ${kind === "front" ? "frontal" : "lateral"} antes de calibrar.`);
+    setCalibratingSide(kind);
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-scale-marker", {
+        body: { imageDataUrl: image, markerType },
+      });
+      if (error) throw new Error(error.message ?? "Falha na chamada");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.found) {
+        toast.error(data?.reason ?? "Marcador não detectado. Reenquadre a foto deixando o marcador bem visível.");
+        return;
+      }
+      setScaleCalibration((prev) => ({
+        ...prev,
+        [kind]: {
+          px_per_cm: data.px_per_cm,
+          marker_label: data.marker_label,
+          confidence: data.confidence,
+        },
+      }));
+      toast.success(`Escala calibrada: ${data.px_per_cm} px/cm (${data.marker_label.split(" — ")[0]}).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao calibrar escala.");
+    } finally {
+      setCalibratingSide(null);
+    }
+  };
 
   const updateAnalysisMeasurement = (key: MeasurementKey, value: string) => {
     setManual((prev) => ({ ...prev, [key]: value }));
