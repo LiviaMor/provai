@@ -126,6 +126,9 @@ const urlToDataUrl = async (url: string): Promise<string | undefined> => {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const authError = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const payload = (await req.json()) as TryonPayload;
     if (!payload.userImageDataUrl?.startsWith("data:image/")) {
