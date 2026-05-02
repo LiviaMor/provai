@@ -26,6 +26,7 @@ import { calcCompatScore, scoreColorClass, type ScoreResult } from "@/lib/compat
 import { Ruler } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
+import { CouponRedeem } from "@/components/CouponRedeem";
 
 // ---------- Tipos enxutos das tabelas ----------
 type BodyAssessment = {
