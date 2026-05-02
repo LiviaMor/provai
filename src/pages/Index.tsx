@@ -797,6 +797,17 @@ const Index = () => {
       }
     }
 
+    const photoTypes: Array<"front" | "side"> = [
+      ...(frontPreview ? ["front" as const] : []),
+      ...(sidePreview ? ["side" as const] : []),
+    ];
+    const captureParams: CapturePreferences = {
+      cameraDistanceM: parseNumber(cameraDistanceM),
+      supportHeightCm: parseNumber(supportHeightCm),
+      photoTypes,
+      updatedAt: new Date().toISOString(),
+    };
+
     await (supabase as any).from("body_assessments").insert({
       user_id: userId,
       title: "Avaliação provAI",
@@ -808,9 +819,25 @@ const Index = () => {
       measurements: result.measurements,
       size_recommendations: result.sizeRecommendations ?? {},
       style_recommendations: result.styleRecommendations ?? [],
-      fitness_assessment: { ...(result.fitnessAssessment ?? {}), bioimpedance: bioimpedanceData, storedPhotos: storedPhotos ?? null },
+      fitness_assessment: {
+        ...(result.fitnessAssessment ?? {}),
+        bioimpedance: bioimpedanceData,
+        storedPhotos: storedPhotos ?? null,
+        captureParams,
+      },
       notes,
     });
+
+    // Salva os últimos parâmetros de captura no perfil para reaproveitar na próxima avaliação.
+    if (captureParams.cameraDistanceM || captureParams.supportHeightCm || photoTypes.length) {
+      const { data: updated } = await (supabase as any)
+        .from("profiles")
+        .update({ capture_preferences: captureParams })
+        .eq("user_id", userId)
+        .select("user_id, display_name, account_type, company_name, capture_preferences")
+        .maybeSingle();
+      if (updated) setProfile(updated);
+    }
   };
 
   const analyze = async (event?: FormEvent<HTMLFormElement>) => {
