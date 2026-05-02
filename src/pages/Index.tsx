@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { PosturalGrid } from "@/components/PosturalGrid";
 
 type MeasurementKey = "height_cm" | "estimated_weight_kg" | "weight_kg" | "bust_cm" | "underbust_cm" | "waist_cm" | "hip_cm" | "inseam_cm" | "outseam_cm" | "arm_length_cm" | "shoulder_width_cm" | "neck_cm" | "thigh_cm" | "torso_length_cm";
 
