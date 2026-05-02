@@ -491,6 +491,39 @@ const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
   return rows;
 };
 
+type CalibrationEntry = { px_per_cm: number; marker_label: string; confidence: number | null; at: number };
+
+const CalibrationHistory = ({ entries }: { entries: CalibrationEntry[] }) => {
+  if (!entries.length) return null;
+  const current = entries[0];
+  const previous = entries[1];
+  const diff = previous ? current.px_per_cm - previous.px_per_cm : 0;
+  const diffPct = previous && previous.px_per_cm ? (diff / previous.px_per_cm) * 100 : 0;
+  const fmtTime = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="rounded-lg border bg-secondary/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-bold uppercase tracking-wider text-muted-foreground">Histórico px/cm</span>
+        {previous && (
+          <span className={`font-bold ${Math.abs(diffPct) < 1 ? "text-muted-foreground" : diff > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+            {diff > 0 ? "▲" : diff < 0 ? "▼" : "•"} {diff > 0 ? "+" : ""}{diff.toFixed(2)} ({diffPct > 0 ? "+" : ""}{diffPct.toFixed(1)}%)
+          </span>
+        )}
+      </div>
+      <ul className="mt-1 space-y-0.5">
+        {entries.map((e, i) => (
+          <li key={e.at} className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">
+              {i === 0 ? "Atual" : i === 1 ? "Anterior" : `#${i + 1}`} · {fmtTime(e.at)}
+            </span>
+            <span className="font-bold tabular-nums">{e.px_per_cm} px/cm</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const Index = () => {
   const [mode, setMode] = useState<FlowMode>("home");
   const temporaryPhotos = useMemo(readTemporaryPhotos, []);
