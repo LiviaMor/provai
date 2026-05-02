@@ -557,6 +557,7 @@ const Index = () => {
     side: Array<{ px_per_cm: number; marker_label: string; confidence: number | null; at: number }>;
   }>({ front: [], side: [] });
   const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
+  const [readyChecks, setReadyChecks] = useState<Record<string, boolean>>({});
 
   const currentMeasurements = analysis?.measurements ?? {};
   const bioimpedanceData = useMemo<BioimpedanceData>(() => ({
@@ -1196,19 +1197,53 @@ const Index = () => {
               }}>← Voltar</Button>
               <h2 className="font-display text-3xl font-semibold">{mode === "photo" ? "Captura guiada" : "Medidas manuais"}</h2>
               <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. Você pode tirar uma foto na hora ou enviar uma imagem da galeria.</p>
-              <div className="rounded-2xl border bg-secondary/40 p-4 text-xs">
-                <div className="mb-2 font-bold uppercase tracking-wider text-foreground">📐 Como aproximar do real</div>
-                <ul className="grid gap-1.5 leading-5 text-muted-foreground">
-                  <li><span className="font-semibold text-foreground">Pose:</span> em pé, ereto, pés juntos, braços levemente afastados (~15°), palmas voltadas para o corpo, olhar para frente.</li>
-                  <li><span className="font-semibold text-foreground">Lateral:</span> gire 90°, ombros e quadris alinhados, braços relaxados ao lado do tronco.</li>
-                  <li><span className="font-semibold text-foreground">Distância:</span> câmera a ~2,5–3 m, na altura do umbigo, lente paralela ao corpo (sem inclinar para cima/baixo).</li>
-                  <li><span className="font-semibold text-foreground">Enquadramento:</span> corpo inteiro visível com folga acima da cabeça e abaixo dos pés; fundo liso e contrastante.</li>
-                  <li><span className="font-semibold text-foreground">Roupa:</span> peça justa de cor única (evite estampas e roupas largas) — descalço ou com sapato baixo.</li>
-                  <li><span className="font-semibold text-foreground">Luz:</span> iluminação difusa e frontal; evite contraluz, sombras fortes e flash direto.</li>
-                  <li><span className="font-semibold text-foreground">Câmera:</span> celular na vertical, apoiado/tripé, sem zoom digital.</li>
-                  <li><span className="font-semibold text-foreground">Calibração:</span> coloque o marcador (cartão/A4/cédula) à frente do corpo, sem dobras, totalmente visível.</li>
-                </ul>
-              </div>
+              {(() => {
+                const checklistItems = [
+                  { key: "pose", label: "Pose: em pé, ereto, pés juntos, braços ~15° afastados, palmas para o corpo." },
+                  { key: "lateral", label: "Lateral: girei 90°, ombros e quadris alinhados, braços ao lado." },
+                  { key: "distancia", label: "Distância: câmera a ~2,5–3 m, na altura do umbigo, lente paralela ao corpo." },
+                  { key: "enquadramento", label: "Enquadramento: corpo inteiro visível, com folga acima e abaixo, fundo liso." },
+                  { key: "roupa", label: "Roupa justa de cor única, descalço ou sapato baixo." },
+                  { key: "luz", label: "Luz difusa e frontal — sem contraluz, sombra forte ou flash direto." },
+                  { key: "camera", label: "Celular na vertical, apoiado/tripé, sem zoom digital." },
+                  { key: "marcador", label: "Marcador (cartão/A4/cédula) à frente do corpo, sem dobras, totalmente visível." },
+                ];
+                const doneCount = checklistItems.filter((i) => readyChecks[i.key]).length;
+                const allReady = doneCount === checklistItems.length;
+                return (
+                  <div className="rounded-2xl border bg-secondary/40 p-4 text-xs">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="font-bold uppercase tracking-wider text-foreground">✅ Checklist ao vivo — confirme antes de enviar</div>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${allReady ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{doneCount}/{checklistItems.length}</span>
+                    </div>
+                    <Progress value={(doneCount / checklistItems.length) * 100} className="mb-3 h-1.5" />
+                    <ul className="grid gap-1.5 leading-5">
+                      {checklistItems.map((item) => {
+                        const checked = !!readyChecks[item.key];
+                        return (
+                          <li key={item.key}>
+                            <label className="flex cursor-pointer items-start gap-2 rounded-md p-1 hover:bg-background/60">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => setReadyChecks((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                                className="mt-0.5 size-4 accent-primary"
+                              />
+                              <span className={checked ? "text-muted-foreground line-through" : "text-foreground"}>{item.label}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {!allReady && mode === "photo" && (
+                      <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Marque todos os itens para liberar o envio das fotos.</p>
+                    )}
+                    {allReady && (
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-primary"><CheckCircle2 className="size-3.5" /> Tudo pronto! Você pode enviar as fotos.</div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="grid gap-2">
                 {["Foto frente", "Foto lateral", "Processando"].map((step, index) => (
                   <div key={step} className="flex items-center gap-3 rounded-2xl bg-muted p-3 text-sm font-bold">
@@ -1313,7 +1348,17 @@ const Index = () => {
                 <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
               </div>
               {mode === "photo" && <label className="flex gap-3 rounded-2xl bg-muted p-3 text-sm leading-6"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-4 accent-primary" /> Concordo com o uso das minhas fotos para análise de medidas. {accountType === "b2b" ? "No B2B, as fotos ficam temporárias e só a análise é armazenada após login." : "No B2C, as informações da análise são salvas após login e as fotos expiram automaticamente."}</label>}
-              <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing} className="w-full">{isAnalyzing ? "Processando" : "Gerar avaliação"}<ArrowRight className="size-4" /></Button>
+              {(() => {
+                const requiredKeys = ["pose","lateral","distancia","enquadramento","roupa","luz","camera","marcador"];
+                const allReady = requiredKeys.every((k) => readyChecks[k]);
+                const blocked = mode === "photo" && !allReady;
+                return (
+                  <Button type="submit" variant="hero" size="lg" disabled={isAnalyzing || blocked} className="w-full">
+                    {isAnalyzing ? "Processando" : blocked ? "Confirme o checklist para enviar" : "Gerar avaliação"}
+                    <ArrowRight className="size-4" />
+                  </Button>
+                );
+              })()}
             </div>
           </form>
         )}
