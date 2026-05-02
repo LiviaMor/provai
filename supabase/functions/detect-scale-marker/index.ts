@@ -37,6 +37,9 @@ type Payload = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const authError = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const body = (await req.json()) as Payload;
     const image = body.imageDataUrl;
