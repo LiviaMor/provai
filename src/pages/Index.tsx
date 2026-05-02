@@ -123,11 +123,19 @@ type BrandSizeOption = {
   hip?: number[];
 };
 
+type CapturePreferences = {
+  cameraDistanceM?: number;
+  supportHeightCm?: number;
+  photoTypes?: Array<"front" | "side">;
+  updatedAt?: string;
+};
+
 type UserProfile = {
   user_id: string;
   display_name?: string | null;
   account_type: "b2c" | "b2b";
   company_name?: string | null;
+  capture_preferences?: CapturePreferences | null;
 };
 
 type ColorChip = { name: string; hex: string };
