@@ -226,8 +226,13 @@ export default function Dashboard() {
           </p>
         </motion.div>
 
+        {/* Cupom promocional */}
+        <div className="mt-8">
+          <CouponRedeem />
+        </div>
+
         {/* Stats */}
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard icon={History} label="Análises corporais" value={counters.body} />
           <StatCard icon={Palette} label="Análises de cor" value={counters.color} accent />
           <StatCard icon={Store} label="Lojas favoritas" value={counters.stores} />
