@@ -1196,6 +1196,19 @@ const Index = () => {
               }}>← Voltar</Button>
               <h2 className="font-display text-3xl font-semibold">{mode === "photo" ? "Captura guiada" : "Medidas manuais"}</h2>
               <p className="leading-7 text-muted-foreground">Fique em pé, de frente, com roupa justa. Você pode tirar uma foto na hora ou enviar uma imagem da galeria.</p>
+              <div className="rounded-2xl border bg-secondary/40 p-4 text-xs">
+                <div className="mb-2 font-bold uppercase tracking-wider text-foreground">📐 Como aproximar do real</div>
+                <ul className="grid gap-1.5 leading-5 text-muted-foreground">
+                  <li><span className="font-semibold text-foreground">Pose:</span> em pé, ereto, pés juntos, braços levemente afastados (~15°), palmas voltadas para o corpo, olhar para frente.</li>
+                  <li><span className="font-semibold text-foreground">Lateral:</span> gire 90°, ombros e quadris alinhados, braços relaxados ao lado do tronco.</li>
+                  <li><span className="font-semibold text-foreground">Distância:</span> câmera a ~2,5–3 m, na altura do umbigo, lente paralela ao corpo (sem inclinar para cima/baixo).</li>
+                  <li><span className="font-semibold text-foreground">Enquadramento:</span> corpo inteiro visível com folga acima da cabeça e abaixo dos pés; fundo liso e contrastante.</li>
+                  <li><span className="font-semibold text-foreground">Roupa:</span> peça justa de cor única (evite estampas e roupas largas) — descalço ou com sapato baixo.</li>
+                  <li><span className="font-semibold text-foreground">Luz:</span> iluminação difusa e frontal; evite contraluz, sombras fortes e flash direto.</li>
+                  <li><span className="font-semibold text-foreground">Câmera:</span> celular na vertical, apoiado/tripé, sem zoom digital.</li>
+                  <li><span className="font-semibold text-foreground">Calibração:</span> coloque o marcador (cartão/A4/cédula) à frente do corpo, sem dobras, totalmente visível.</li>
+                </ul>
+              </div>
               <div className="grid gap-2">
                 {["Foto frente", "Foto lateral", "Processando"].map((step, index) => (
                   <div key={step} className="flex items-center gap-3 rounded-2xl bg-muted p-3 text-sm font-bold">
