@@ -491,6 +491,39 @@ const buildPurchaseRisks = (analysis: Analysis): PurchaseRisk[] => {
   return rows;
 };
 
+type CalibrationEntry = { px_per_cm: number; marker_label: string; confidence: number | null; at: number };
+
+const CalibrationHistory = ({ entries }: { entries: CalibrationEntry[] }) => {
+  if (!entries.length) return null;
+  const current = entries[0];
+  const previous = entries[1];
+  const diff = previous ? current.px_per_cm - previous.px_per_cm : 0;
+  const diffPct = previous && previous.px_per_cm ? (diff / previous.px_per_cm) * 100 : 0;
+  const fmtTime = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="rounded-lg border bg-secondary/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-bold uppercase tracking-wider text-muted-foreground">Histórico px/cm</span>
+        {previous && (
+          <span className={`font-bold ${Math.abs(diffPct) < 1 ? "text-muted-foreground" : diff > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+            {diff > 0 ? "▲" : diff < 0 ? "▼" : "•"} {diff > 0 ? "+" : ""}{diff.toFixed(2)} ({diffPct > 0 ? "+" : ""}{diffPct.toFixed(1)}%)
+          </span>
+        )}
+      </div>
+      <ul className="mt-1 space-y-0.5">
+        {entries.map((e, i) => (
+          <li key={e.at} className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">
+              {i === 0 ? "Atual" : i === 1 ? "Anterior" : `#${i + 1}`} · {fmtTime(e.at)}
+            </span>
+            <span className="font-bold tabular-nums">{e.px_per_cm} px/cm</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const Index = () => {
   const [mode, setMode] = useState<FlowMode>("home");
   const temporaryPhotos = useMemo(readTemporaryPhotos, []);
@@ -519,6 +552,10 @@ const Index = () => {
     front?: { px_per_cm: number; marker_label: string; confidence: number | null };
     side?: { px_per_cm: number; marker_label: string; confidence: number | null };
   }>({});
+  const [calibrationHistory, setCalibrationHistory] = useState<{
+    front: Array<{ px_per_cm: number; marker_label: string; confidence: number | null; at: number }>;
+    side: Array<{ px_per_cm: number; marker_label: string; confidence: number | null; at: number }>;
+  }>({ front: [], side: [] });
   const [calibratingSide, setCalibratingSide] = useState<"front" | "side" | null>(null);
 
   const currentMeasurements = analysis?.measurements ?? {};
@@ -604,9 +641,11 @@ const Index = () => {
       if (kind === "front") {
         setFrontPreview(String(reader.result));
         setScaleCalibration((prev) => ({ ...prev, front: undefined }));
+        setCalibrationHistory((prev) => ({ ...prev, front: [] }));
       } else {
         setSidePreview(String(reader.result));
         setScaleCalibration((prev) => ({ ...prev, side: undefined }));
+        setCalibrationHistory((prev) => ({ ...prev, side: [] }));
       }
       toast.success("Foto salva temporariamente neste dispositivo.");
     };
@@ -627,13 +666,15 @@ const Index = () => {
         toast.error(data?.reason ?? "Marcador não detectado. Reenquadre a foto deixando o marcador bem visível.");
         return;
       }
-      setScaleCalibration((prev) => ({
+      const entry = {
+        px_per_cm: data.px_per_cm,
+        marker_label: data.marker_label,
+        confidence: data.confidence,
+      };
+      setScaleCalibration((prev) => ({ ...prev, [kind]: entry }));
+      setCalibrationHistory((prev) => ({
         ...prev,
-        [kind]: {
-          px_per_cm: data.px_per_cm,
-          marker_label: data.marker_label,
-          confidence: data.confidence,
-        },
+        [kind]: [{ ...entry, at: Date.now() }, ...prev[kind]].slice(0, 5),
       }));
       toast.success(`Escala calibrada: ${data.px_per_cm} px/cm (${data.marker_label.split(" — ")[0]}).`);
     } catch (err) {
@@ -1146,6 +1187,7 @@ const Index = () => {
                     <Button type="button" variant="outline" size="sm" disabled={!frontPreview || calibratingSide === "front"} onClick={() => calibrateScale("front")} className="w-full">
                       {calibratingSide === "front" ? "Detectando marcador…" : scaleCalibration.front ? `✓ ${scaleCalibration.front.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
                     </Button>
+                    <CalibrationHistory entries={calibrationHistory.front} />
                   </div>
                   <div className="space-y-2">
                     <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border bg-secondary text-center shadow-inner">
@@ -1158,6 +1200,7 @@ const Index = () => {
                     <Button type="button" variant="outline" size="sm" disabled={!sidePreview || calibratingSide === "side"} onClick={() => calibrateScale("side")} className="w-full">
                       {calibratingSide === "side" ? "Detectando marcador…" : scaleCalibration.side ? `✓ ${scaleCalibration.side.px_per_cm} px/cm — recalibrar` : "Calibrar escala"}
                     </Button>
+                    <CalibrationHistory entries={calibrationHistory.side} />
                   </div>
                   <Input id="front-camera" type="file" accept="image/*" capture="environment" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
                   <Input id="front-upload" type="file" accept="image/*" onChange={(event) => onImageChange(event, "front")} className="sr-only" />
