@@ -8,7 +8,7 @@
 // Fatores de conversão largura frontal → circunferência
 // Fonte: ISO 8559, CAESAR 3D Body Scan Database, estudos antropométricos brasileiros
 // Esses fatores representam a relação média entre a projeção frontal 2D e a circunferência real 3D
-const CIRCUMFERENCE_FACTORS = {
+export const CIRCUMFERENCE_FACTORS = {
   female: {
     bust: 2.58,      // ±5% — validado contra CAESAR (n=2400)
     underbust: 2.45,  // ±6%
@@ -30,7 +30,7 @@ const CIRCUMFERENCE_FACTORS = {
 // Com foto lateral disponível, usamos fórmula de elipse (Ramanujan)
 // Circunferência ≈ π × (3(a+b) - √((3a+b)(a+3b)))
 // onde a = largura_frontal/2, b = profundidade_lateral/2
-function ellipseCircumference(widthCm: number, depthCm: number): number {
+export function ellipseCircumference(widthCm: number, depthCm: number): number {
   const a = widthCm / 2;
   const b = depthCm / 2;
   // Aproximação de Ramanujan (erro < 0.1% para elipses corporais)
