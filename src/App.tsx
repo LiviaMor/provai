@@ -21,8 +21,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/sobre" element={<Landing />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/analise" element={<Index />} />
         <Route path="/coloracao" element={<ColoracaoHome />} />
         <Route path="/coloracao/upload" element={<ColoracaoUpload />} />
         <Route path="/coloracao/processando" element={<ColoracaoProcessing />} />
