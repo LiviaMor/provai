@@ -23,6 +23,7 @@ const App = () => (
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/app" element={<Index />} />
+        <Route path="/analise" element={<Index />} />
         <Route path="/coloracao" element={<ColoracaoHome />} />
         <Route path="/coloracao/upload" element={<ColoracaoUpload />} />
         <Route path="/coloracao/processando" element={<ColoracaoProcessing />} />

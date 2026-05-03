@@ -81,7 +81,7 @@ export default function Landing() {
           </motion.p>
 
           <motion.div variants={fadeUp} custom={3} className="mt-8 flex flex-wrap gap-3 justify-center">
-            <Link to="/auth">
+            <Link to="/app">
               <Button size="lg" className="rounded-full gap-2 text-base px-8">
                 Começar grátis <ArrowRight className="h-4 w-4" />
               </Button>
@@ -351,7 +351,7 @@ export default function Landing() {
           <p className="mt-3 text-muted-foreground">
             Crie sua conta em 30 segundos. Sem cartão, sem compromisso.
           </p>
-          <Link to="/auth">
+          <Link to="/app">
             <Button size="lg" className="mt-6 rounded-full gap-2 text-base px-8">
               Começar agora <ArrowRight className="h-4 w-4" />
             </Button>
