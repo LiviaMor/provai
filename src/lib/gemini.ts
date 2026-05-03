@@ -107,12 +107,18 @@ export async function callGemini(
     body.systemInstruction = { parts: [{ text: systemText }] };
   }
 
-  // Modelo: usar gemini-2.0-flash (nome correto na API direta do Google)
-  // gemini-2.5-flash não existe na API pública ainda — é "gemini-2.0-flash" ou "gemini-1.5-flash"
-  const modelName = model === "gemini-2.5-flash" ? "gemini-2.0-flash" : model;
+  // Modelo: mapear nomes para os disponíveis na API pública
+  const MODEL_MAP: Record<string, string> = {
+    "gemini-2.5-flash": "gemini-2.0-flash",
+    "gemini-2.0-flash": "gemini-2.0-flash",
+    "gemini-1.5-flash": "gemini-1.5-flash",
+    "gemini-1.5-pro": "gemini-1.5-pro",
+  };
+  const modelName = MODEL_MAP[model] ?? "gemini-2.0-flash";
   const url = `${GEMINI_BASE_URL}/models/${modelName}:generateContent?key=${apiKey}`;
 
-  console.log(`[provAI] Calling Gemini ${modelName}...`);
+  console.log(`[provAI] Calling Gemini ${modelName} (${contents.length} messages, ${contents.reduce((n, m) => n + m.parts.length, 0)} parts)...`);
+  console.log(`[provAI] API Key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)} (${apiKey.length} chars)`);
 
   const response = await fetch(url, {
     method: "POST",
