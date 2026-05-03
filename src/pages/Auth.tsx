@@ -27,10 +27,10 @@ const Auth = () => {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) navigate("/analise", { replace: true });
+      if (session?.user) navigate("/app", { replace: true });
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) navigate("/analise", { replace: true });
+      if (session?.user) navigate("/app", { replace: true });
       else setChecking(false);
     });
     return () => sub.subscription.unsubscribe();
@@ -50,7 +50,7 @@ const Auth = () => {
       toast({ title: "Não foi possível entrar", description: msg, variant: "destructive" });
       return;
     }
-    navigate("/analise", { replace: true });
+    navigate("/app", { replace: true });
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -60,7 +60,7 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/analise`,
+        emailRedirectTo: `${window.location.origin}/app`,
         data: { full_name: name || undefined },
       },
     });
@@ -81,7 +81,7 @@ const Auth = () => {
   const handleGoogle = async () => {
     setBusy("google");
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/analise`,
+      redirect_uri: `${window.location.origin}/app`,
     });
     if (result.error) {
       setBusy(null);
@@ -93,7 +93,7 @@ const Auth = () => {
       return;
     }
     if (result.redirected) return;
-    navigate("/analise", { replace: true });
+    navigate("/app", { replace: true });
   };
 
   // Dev/demo login — cria ou loga com admin@provai.app / admin123
@@ -109,7 +109,7 @@ const Auth = () => {
     });
 
     if (!loginError) {
-      navigate("/analise", { replace: true });
+      navigate("/app", { replace: true });
       setBusy(null);
       return;
     }
@@ -133,7 +133,7 @@ const Auth = () => {
 
     // Se o signup retornou sessão (auto-confirm habilitado), já está logado
     if (signupData?.session) {
-      navigate("/analise", { replace: true });
+      navigate("/app", { replace: true });
       setBusy(null);
       return;
     }
@@ -152,7 +152,7 @@ const Auth = () => {
       });
       return;
     }
-    navigate("/analise", { replace: true });
+    navigate("/app", { replace: true });
   };
 
   if (checking) {
