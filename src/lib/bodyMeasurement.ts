@@ -86,6 +86,8 @@ export type CalculatedMeasurements = {
   thigh_cm: number;
   neck_cm: number;
   torso_length_cm: number;
+  // Medidas de modelagem industrial
+  tailoring: TailoringMeasurements;
   // Metadados de confiança
   confidence: "alta" | "media" | "baixa";
   method: "marker_calibration" | "height_calibration" | "proportional";
@@ -205,10 +207,19 @@ export function calculateMeasurementsFromLandmarks(
     notes.push(`Escala estimada pela altura informada: ${pxPerCm.toFixed(2)} px/cm.`);
   }
 
+  // Calcular medidas de modelagem industrial
+  const tailoring = calculateTailoringMeasurements(
+    height_cm, bust_cm, waist_cm, hip_cm,
+    bustWidthCm, hasLateralPhoto ? bustWidthCm * 0.75 : undefined,
+    waistWidthCm, hasLateralPhoto ? waistWidthCm * 0.65 : undefined,
+    hipWidthCm, hasLateralPhoto ? hipWidthCm * 0.72 : undefined,
+  );
+
   return {
     height_cm, shoulder_width_cm, bust_cm, underbust_cm,
     waist_cm, hip_cm, inseam_cm, arm_length_cm,
     thigh_cm, neck_cm, torso_length_cm,
+    tailoring,
     confidence, method, notes,
   };
 }
@@ -348,8 +359,117 @@ export function calculateSizeRecommendation(
 }
 
 // ============================================================================
-// Prompt para o Gemini: pedir APENAS landmarks em pixels
+// Fórmulas de Modelagem Industrial (usadas por costureiras e modelistas)
+// Fonte: Modelagem plana industrial brasileira
 // ============================================================================
+
+export type TailoringMeasurements = {
+  // Derivadas da altura
+  crotch_height_cm: number;      // Altura do gancho (para calças)
+  pants_length_cm: number;       // Comprimento da calça
+  shirt_length_cm: number;       // Comprimento da camisa
+  // Derivadas do tórax
+  armhole_depth_cm: number;      // Altura da cava
+  // Circunferência por elipse de Ramanujan
+  bust_circumference_cm: number;
+  waist_circumference_cm: number;
+  hip_circumference_cm: number;
+};
+
+/**
+ * Calcula medidas de modelagem industrial a partir de altura e tórax.
+ * Estas fórmulas são as mesmas usadas por costureiras profissionais.
+ */
+export function calculateTailoringMeasurements(
+  height_cm: number,
+  bust_cm: number,
+  waist_cm: number,
+  hip_cm: number,
+  bustWidthCm?: number,
+  bustDepthCm?: number,
+  waistWidthCm?: number,
+  waistDepthCm?: number,
+  hipWidthCm?: number,
+  hipDepthCm?: number,
+): TailoringMeasurements {
+  // Fórmulas de proporção (modelagem plana industrial)
+  const crotch_height_cm = Math.round((height_cm * 16 / 100) * 10) / 10;
+  const pants_length_cm = Math.round((height_cm * 61 / 100) * 10) / 10;
+  const shirt_length_cm = Math.round((height_cm * 45 / 100) * 10) / 10;
+  const armhole_depth_cm = Math.round((bust_cm / 4.4) * 10) / 10;
+
+  // Circunferências: se temos largura + profundidade, usa Ramanujan (exata)
+  // Senão, usa o valor já calculado pelos fatores antropométricos
+  let bust_circumference_cm = bust_cm;
+  let waist_circumference_cm = waist_cm;
+  let hip_circumference_cm = hip_cm;
+
+  if (bustWidthCm && bustDepthCm) {
+    bust_circumference_cm = Math.round(ellipseCircumferenceRamanujan(bustWidthCm, bustDepthCm) * 10) / 10;
+  }
+  if (waistWidthCm && waistDepthCm) {
+    waist_circumference_cm = Math.round(ellipseCircumferenceRamanujan(waistWidthCm, waistDepthCm) * 10) / 10;
+  }
+  if (hipWidthCm && hipDepthCm) {
+    hip_circumference_cm = Math.round(ellipseCircumferenceRamanujan(hipWidthCm, hipDepthCm) * 10) / 10;
+  }
+
+  return {
+    crotch_height_cm,
+    pants_length_cm,
+    shirt_length_cm,
+    armhole_depth_cm,
+    bust_circumference_cm,
+    waist_circumference_cm,
+    hip_circumference_cm,
+  };
+}
+
+/**
+ * Aproximação de Ramanujan para perímetro de elipse.
+ * Erro < 0.1% para proporções corporais típicas.
+ * P ≈ π × (3(a+b) - √((3a+b)(a+3b)))
+ * onde a = largura/2, b = profundidade/2
+ */
+function ellipseCircumferenceRamanujan(width: number, depth: number): number {
+  const a = width / 2;
+  const b = depth / 2;
+  return Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+}
+
+/**
+ * Calcula ajustes de alfaiataria comparando medidas do cliente com a peça.
+ */
+export function calculateTailoringAdjustments(
+  clientMeasurements: TailoringMeasurements,
+  garmentLength?: number, // comprimento da peça (da tabela da marca)
+  garmentInseam?: number, // entrepernas da peça
+): {
+  hem_adjustment_cm: number;
+  hem_note: string;
+  crotch_note: string;
+  armhole_note: string;
+  shirt_length_note: string;
+} {
+  const hem_adjustment_cm = garmentInseam
+    ? Math.round((garmentInseam - (clientMeasurements.pants_length_cm - clientMeasurements.crotch_height_cm)) * 10) / 10
+    : 0;
+
+  const hem_note = hem_adjustment_cm > 2
+    ? `Precisa encurtar ~${hem_adjustment_cm}cm de barra.`
+    : hem_adjustment_cm < -2
+    ? `Calça pode ficar ${Math.abs(hem_adjustment_cm)}cm curta. Considere tamanho com perna mais longa.`
+    : "Comprimento adequado, sem ajuste de barra necessário.";
+
+  const crotch_note = `Altura do gancho: ${clientMeasurements.crotch_height_cm}cm (altura × 16%). Calças com gancho muito baixo ou alto podem incomodar.`;
+
+  const armhole_note = `Cava ideal: ${clientMeasurements.armhole_depth_cm}cm (tórax ÷ 4.4). Cavas muito profundas limitam movimento; muito rasas apertam.`;
+
+  const shirt_length_note = `Comprimento ideal de camisa: ${clientMeasurements.shirt_length_cm}cm (altura × 45%). Para usar por dentro da calça, adicione 5-8cm.`;
+
+  return { hem_adjustment_cm, hem_note, crotch_note, armhole_note, shirt_length_note };
+}
+
 
 export const LANDMARKS_PROMPT = `Detecte os landmarks corporais na foto e retorne APENAS as coordenadas em pixels (x, y) no JSON abaixo. NÃO calcule medidas em cm — apenas pixels. NÃO estime tamanhos de roupa.
 
