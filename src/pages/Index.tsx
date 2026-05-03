@@ -29,6 +29,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
 import { callGemini } from "@/lib/gemini";
+import { getSizingTablesForPrompt } from "@/lib/sizingTables";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -869,10 +870,23 @@ const Index = () => {
     setAnalysis(null);
 
     try {
-      const systemPrompt = `Você é o motor de visão por IA do app provAI para análise de fotos corporais, tamanhos de roupa e avaliação fitness em pt-BR. Responda somente JSON válido. Use fórmulas CUN-BAE, Deurenberg e U.S. Navy para % gordura. Seja conservador, indique confiança. Não substitui médico.`;
+      const sizingTables = getSizingTablesForPrompt(gender);
+      const systemPrompt = `Você é o motor de análise corporal do app provAI. Responda SOMENTE JSON válido em pt-BR.
+
+REGRAS DE SIZING (OBRIGATÓRIO — use estas tabelas, NÃO invente valores):
+${sizingTables}
+
+REGRAS DE COMPOSIÇÃO CORPORAL:
+- IMC = peso / (altura_m)²
+- % Gordura: use CUN-BAE + Deurenberg + U.S. Navy quando possível. Retorne body_fat_breakdown com cada método.
+- TMB: Mifflin-St Jeor (10*peso + 6.25*altura - 5*idade + 5 homem / -161 mulher)
+- Risco abdominal OMS: mulheres ≥80cm aumentado / ≥88cm elevado; homens ≥94/≥102.
+- body_type: Ampulheta, Triângulo, Triângulo invertido, Retangular, Oval.
+
+Seja conservador. Indique confiança. Não substitui médico.`;
 
       const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-      userContent.push({ type: "text", text: `Analise os dados e retorne JSON com: measurements (cada medida como {value, confidence}), body_analysis (bmi, body_fat_estimate_pct, body_fat_breakdown, body_type, waist_to_hip_ratio, abdominal_risk, basal_metabolic_rate_kcal), clothing_sizes (size_brazil, size_international, pants_number_brazil), tailoring (hem_note, sleeve_note, shoulder_fit, waist_fit_suggestion), style_recommendations (body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles), quality_assessment (overall_confidence, accuracy_note). Dados: altura=${measurements.height_cm ?? "?"}cm, peso=${measurements.estimated_weight_kg ?? "?"}kg, gênero=${gender}, idade=${age || "?"}, objetivo=${objective}, medidas manuais=${JSON.stringify(measurements)}, produto=${productUrl || "nenhum"}.` });
+      userContent.push({ type: "text", text: `Analise e retorne JSON com: measurements (cada medida como {value, confidence} para height_cm, weight_kg, bust_cm, underbust_cm, waist_cm, hip_cm, shoulder_width_cm, inseam_cm, outseam_cm, arm_length_cm, thigh_cm, neck_cm, torso_length_cm), body_analysis (bmi, bmi_category, body_fat_estimate_pct, body_fat_range_low, body_fat_range_high, body_fat_method, body_fat_methodology_note, body_fat_breakdown:[{method,value,reference}], muscle_mass_kg, basal_metabolic_rate_kcal, body_fat_disclaimer, body_type, waist_to_hip_ratio, abdominal_risk), clothing_sizes (size_brazil, size_international, size_european, pants_number_brazil, bra_size, sizing_justification), tailoring (hem_adjustment_cm, hem_note, sleeve_adjustment_cm, sleeve_note, shoulder_fit, waist_fit_suggestion), style_recommendations (body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles, pattern_tips), quality_assessment (overall_confidence, photo_quality_issues, accuracy_note). DADOS: altura=${measurements.height_cm ?? "?"}cm, peso=${measurements.estimated_weight_kg ?? "?"}kg, busto=${measurements.bust_cm ?? "?"}cm, cintura=${measurements.waist_cm ?? "?"}cm, quadril=${measurements.hip_cm ?? "?"}cm, gênero=${gender}, idade=${age || "?"}, objetivo=${objective}, link produto=${productUrl || "nenhum"}, medidas extras=${JSON.stringify(measurements)}.` });
 
       if (frontPreview) {
         userContent.push({ type: "text", text: "FOTO FRONTAL:" });
