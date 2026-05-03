@@ -26,16 +26,17 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-app-radial">
       {/* Nav */}
-      <nav className="container flex items-center justify-between py-6">
-        <Link to="/coloracao" className="flex items-center gap-2 font-display text-xl tracking-tight">
-          <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm">A</span>
-          <span>Atelier de Coloração</span>
-        </Link>
-        <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
-          <a href="#como" className="hover:text-foreground">Como funciona</a>
-          <a href="#beneficios" className="hover:text-foreground">Benefícios</a>
-          <a href="#depoimentos" className="hover:text-foreground">Depoimentos</a>
-          <Link to="/painel" className="hover:text-foreground inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Meu painel</Link>
+      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/40">
+        <div className="container flex items-center justify-between py-4">
+          <Link to="/app" className="flex items-center gap-2">
+            <img src="/provai.png" alt="provAI" className="h-8 w-auto" />
+          </Link>
+          <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="#como" className="hover:text-foreground">Como funciona</a>
+            <a href="#beneficios" className="hover:text-foreground">Benefícios</a>
+            <a href="#depoimentos" className="hover:text-foreground">Depoimentos</a>
+            <Link to="/app" className="hover:text-foreground inline-flex items-center gap-1.5"><ArrowRight className="h-3.5 w-3.5 rotate-180" /> Voltar</Link>
+          </div>
         </div>
       </nav>
 
@@ -185,7 +186,7 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="container pb-24">
+      <section className="container pb-16">
         <div className="rounded-3xl bg-primary text-primary-foreground p-10 sm:p-14 text-center shadow-panel">
           <h2 className="font-display text-3xl sm:text-5xl text-balance">Sua cartela ideal está a 3 fotos de distância.</h2>
           <p className="mt-4 opacity-80 max-w-xl mx-auto">Comece sua análise agora e receba um relatório premium em poucos minutos.</p>
@@ -193,8 +194,22 @@ export default function Home() {
             <Button size="lg" variant="secondary" className="rounded-full px-8 gap-2">Iniciar Análise <ArrowRight className="h-4 w-4" /></Button>
           </Link>
         </div>
-        <p className="mt-8 text-center text-xs text-muted-foreground">© Atelier de Coloração · Análise por IA</p>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border/40 py-6">
+        <div className="container flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <img src="/provai.png" alt="provAI" className="h-5 w-auto opacity-60" />
+            <span>© 2026 provAI. Todos os direitos reservados.</span>
+          </div>
+          <div className="flex gap-4">
+            <Link to="/app" className="hover:text-foreground">Início</Link>
+            <Link to="/planos" className="hover:text-foreground">Planos</Link>
+            <Link to="/painel" className="hover:text-foreground">Painel</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
