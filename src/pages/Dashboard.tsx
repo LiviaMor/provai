@@ -202,9 +202,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-app-radial pb-24">
       {/* Nav */}
       <nav className="container flex items-center justify-between py-6">
-        <Link to="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
-          <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm">P</span>
-          <span>provAI</span>
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/provai.png" alt="provAI" className="h-8 w-auto" />
         </Link>
         <div className="flex items-center gap-2">
           <Link to="/">

@@ -32,9 +32,8 @@ export default function Landing() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/40">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-4">
-          <Link to="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
-            <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-bold">P</span>
-            <span>provAI</span>
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/provai.png" alt="provAI" className="h-8 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/planos">
