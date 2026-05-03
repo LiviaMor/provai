@@ -1212,26 +1212,19 @@ const Index = () => {
   return (
     <main className="min-h-screen bg-app-radial text-foreground">
       <section className="container min-h-screen max-w-6xl py-5 sm:py-8">
-        <nav className="mb-5 flex items-center justify-between rounded-2xl border bg-card/70 px-4 py-3 shadow-panel backdrop-blur-xl border-fuchsia-500">
-          <div className="flex items-center gap-3">
-            <span className="relative grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground shadow-glow">
-              <ScanLine className="size-5 bg-fuchsia-400" />
-              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-glow" />
-            </span>
-            <div className="flex flex-col leading-none">
-              <span className="font-display text-2xl font-bold tracking-tight">
-                prov<span className="bg-gradient-to-r from-accent to-primary-glow bg-clip-text text-transparent">AI</span>
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">medidas · estilo · caimento</span>
-            </div>
-          </div>
+        <nav className="mb-5 flex items-center justify-between rounded-2xl border bg-card/70 px-4 py-3 shadow-panel backdrop-blur-xl border-border/60">
+          <Link to="/app" className="flex items-center gap-3">
+            <img src="/provai.png" alt="provAI" className="h-9 w-auto" />
+          </Link>
           <div className="flex items-center gap-2">
             {userId && (
               <Link to="/painel">
                 <Button type="button" variant="ghost" size="sm" className="gap-2"><Sparkles className="size-4" /> Painel</Button>
               </Link>
             )}
-            {userId && <Button type="button" variant="outline" size="sm" onClick={toggleAccountType}>{accountType.toUpperCase()}</Button>}
+            <Link to="/app">
+              <Button type="button" variant="ghost" size="sm" className="gap-2"><ArrowRight className="size-4 rotate-180" /> Voltar</Button>
+            </Link>
             <Button type="button" variant="ghost" size="sm" onClick={userId ? signOut : signIn} className="gap-2">
               <LogIn className="size-4" /> {userId ? "Sair" : "Entrar"}
             </Button>
@@ -1738,6 +1731,22 @@ const Index = () => {
           </div>
         )}
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border/40 py-6 mt-10">
+        <div className="container max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <img src="/provai.png" alt="provAI" className="h-5 w-auto opacity-60" />
+            <span>© 2026 provAI. Todos os direitos reservados.</span>
+          </div>
+          <div className="flex gap-4">
+            <Link to="/app" className="hover:text-foreground">Início</Link>
+            <Link to="/planos" className="hover:text-foreground">Planos</Link>
+            <Link to="/coloracao" className="hover:text-foreground">Colorimetria</Link>
+            <Link to="/painel" className="hover:text-foreground">Painel</Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 };
