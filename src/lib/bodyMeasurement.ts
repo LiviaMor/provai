@@ -1,3 +1,5 @@
+import { getProportions, validateLandmarkPositions, estimateMissingLandmark } from "./bodyProportions";
+
 // ============================================================================
 // Body Measurement Engine — Cálculo determinístico de medidas corporais
 // 
@@ -128,6 +130,17 @@ export function calculateMeasurementsFromLandmarks(
   const pxPerCm = calibration.px_per_cm;
   const factors = CIRCUMFERENCE_FACTORS[gender];
   const notes: string[] = [];
+
+  // --- Validar landmarks contra proporções antropométricas ---
+  const validation = validateLandmarkPositions(landmarks, gender, 0.08);
+  if (validation.score < 50) {
+    notes.push(`⚠️ Landmarks com desvio significativo das proporções esperadas (score ${validation.score}/100).`);
+    validation.issues.forEach(issue => notes.push(`  → ${issue}`));
+  } else if (validation.score < 80) {
+    notes.push(`Landmarks com desvio moderado (score ${validation.score}/100). Medidas podem ter ±3-5cm de variação.`);
+  } else {
+    notes.push(`✓ Landmarks alinhados com proporções antropométricas (score ${validation.score}/100).`);
+  }
 
   // --- Medidas lineares (diretas, alta precisão) ---
   const heightPx = distPx(landmarks.head_top, landmarks.ankle_left);
