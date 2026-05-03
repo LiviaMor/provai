@@ -73,30 +73,33 @@ SaaS B2B se enquadra no **Anexo V** do Simples Nacional (serviços de TI):
 
 **Fator R**: Se a folha de pagamento (pró-labore + salários) for ≥ 28% do faturamento, migra para o **Anexo III** (alíquota inicial 6% em vez de 15,5%). Isso é muito mais vantajoso.
 
-### 2.4 Alternativa: MEI (se faturar até R$81.000/ano)
+### 2.4 Regime Mínimo: ME Simples Nacional (desde o início)
+
+SaaS/tecnologia **não pode ser MEI** no Brasil. O regime mínimo é **Microempresa (ME) no Simples Nacional**.
 
 | Item | Custo |
 |------|-------|
-| DAS mensal | R$75,90 (2026) |
-| Limite faturamento | R$81.000/ano (~R$6.750/mês) |
-| Funcionários | Máximo 1 |
-| Nota fiscal | Pode emitir |
-| **Ideal para**: validação do MVP até ter 5-10 clientes |
+| DAS Simples (Anexo V, 15,5%) | Sobre faturamento |
+| Contabilidade obrigatória | R$200-500/mês |
+| Pró-labore mínimo (1 salário) | R$1.412 + INSS 11% = R$1.567 |
+| Limite faturamento | R$4.800.000/ano |
 
 ---
 
 ## 3. Custos Totais Reais por Cenário
 
-### Cenário A: Validação (MEI, 1-5 clientes)
+### Cenário A: Início (ME Simples, 1-10 clientes)
 
 | Item | Custo/mês |
 |------|-----------|
 | Infraestrutura (Vercel + Supabase) | R$275 |
 | IA (Gemini free + FASHN mínimo) | R$40 |
-| DAS MEI | R$76 |
+| Contabilidade | R$250 |
+| Pró-labore + INSS (1 sócio, mínimo) | R$1.567 |
+| Impostos Simples (15,5% de R$1.000) | R$155 |
 | Domínio + email | R$41 |
-| **Total** | **R$432/mês** |
-| **Receita necessária para break-even** | 5 clientes × R$99,90 = R$499 ✓ |
+| **Total** | **R$2.328/mês** |
+| **Receita necessária para break-even** | 12 clientes × R$197 = R$2.364 ✓ |
 
 ### Cenário B: Operação (ME Simples, 20-50 clientes)
 
@@ -197,17 +200,18 @@ O provAI a R$197/mês é **mais barato que 1 sessão de consultora** e entrega r
 
 | Métrica | Valor |
 |---------|-------|
-| Custo mínimo para operar (MEI) | R$432/mês |
-| Break-even (MEI) | 3 clientes Growth |
-| Custo real com CNPJ ME | R$3.350/mês |
-| Break-even (ME) | 18 clientes Growth |
-| Pricing recomendado | R$197/seat/mês |
+| Custo mínimo para operar (ME Simples) | **R$2.328/mês** |
+| Break-even | **12 clientes Growth** |
+| Custo com escala (50 clientes) | R$7.925/mês |
+| Pricing recomendado | **R$197/seat/mês** |
 | Margem por cliente | 72% |
-| Meta 6 meses | 50 clientes = R$9.850 receita |
-| Meta 12 meses | 100 clientes = R$19.700 receita |
+| Meta 6 meses | 30 clientes = R$5.910 receita |
+| Meta 12 meses | 80 clientes = R$15.760 receita |
+| Lucro líquido (80 clientes) | ~R$6.260/mês |
 
 ### Próximo passo imediato:
-1. Começar como **MEI** (R$76/mês de imposto, sem contabilidade obrigatória)
-2. Pricing a **R$197/seat/mês** (ou R$1.970/ano com desconto)
-3. Validar com 3-5 clientes no piloto gratuito
-4. Migrar para ME quando faturar >R$6.750/mês
+1. Abrir **ME Simples Nacional** (Anexo V — serviços de TI)
+2. Pricing a **R$197/seat/mês** (ou R$1.970/ano com 2 meses grátis)
+3. Usar **Fator R** (pró-labore ≥28% do faturamento) para cair no Anexo III (6% vs 15,5%)
+4. Validar com 3-5 clientes no piloto gratuito de 30 dias
+5. Meta: 12 clientes pagantes para break-even
