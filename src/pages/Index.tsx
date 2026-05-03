@@ -871,22 +871,127 @@ const Index = () => {
 
     try {
       const sizingTables = getSizingTablesForPrompt(gender);
-      const systemPrompt = `Você é o motor de análise corporal do app provAI. Responda SOMENTE JSON válido em pt-BR.
+      const isMale = gender.toLowerCase().startsWith("m") && !gender.toLowerCase().startsWith("mu");
 
-REGRAS DE SIZING (OBRIGATÓRIO — use estas tabelas, NÃO invente valores):
-${sizingTables}
+      // ====================================================================
+      // PASSO 1: Gemini detecta landmarks em pixels (NÃO calcula medidas)
+      // PASSO 2: Código local converte pixels → cm → P/M/G (matemática pura)
+      // ====================================================================
 
-REGRAS DE COMPOSIÇÃO CORPORAL:
-- IMC = peso / (altura_m)²
-- % Gordura: use CUN-BAE + Deurenberg + U.S. Navy quando possível. Retorne body_fat_breakdown com cada método.
-- TMB: Mifflin-St Jeor (10*peso + 6.25*altura - 5*idade + 5 homem / -161 mulher)
-- Risco abdominal OMS: mulheres ≥80cm aumentado / ≥88cm elevado; homens ≥94/≥102.
-- body_type: Ampulheta, Triângulo, Triângulo invertido, Retangular, Oval.
+      let calculatedFromLandmarks = false;
+      let landmarkMeasurements: Record<string, number> = {};
+      let sizeResult: { size_brazil: string; size_international: string; size_european: number; pants_number_brazil: number; justification: string } | null = null;
 
-Seja conservador. Indique confiança. Não substitui médico.`;
+      if (frontPreview) {
+        // PASSO 1: Pedir landmarks ao Gemini
+        const { LANDMARKS_PROMPT, calculateMeasurementsFromLandmarks, calculateSizeRecommendation } = await import("@/lib/bodyMeasurement");
+
+        const landmarksRaw = await callGemini("gemini-2.5-flash", [
+          { role: "system", content: "Você é um detector de landmarks corporais. Retorne APENAS coordenadas em pixels. NÃO calcule medidas." },
+          { role: "user", content: [
+            { type: "text", text: LANDMARKS_PROMPT },
+            { type: "image_url", image_url: { url: frontPreview } },
+          ] },
+        ], { jsonMode: true });
+
+        const landmarksData = JSON.parse(landmarksRaw.replace(/^```json\s*|\s*```$/g, ""));
+
+        if (landmarksData?.landmarks) {
+          // Determinar escala (px_per_cm)
+          let calibration = { px_per_cm: 0, confidence: 0, source: "height" as const };
+
+          if (scaleCalibration.front?.px_per_cm) {
+            // Calibração por marcador físico (mais precisa)
+            calibration = { px_per_cm: scaleCalibration.front.px_per_cm, confidence: 0.95, source: "marker" };
+          } else if (measurements.height_cm && landmarksData.landmarks.head_top && landmarksData.landmarks.ankle_left) {
+            // Calibração pela altura informada
+            const heightPx = Math.abs(landmarksData.landmarks.ankle_left[1] - landmarksData.landmarks.head_top[1]);
+            calibration = { px_per_cm: heightPx / measurements.height_cm, confidence: 0.7, source: "height" };
+          }
+
+          if (calibration.px_per_cm > 0) {
+            // PASSO 2: Calcular medidas em cm (matemática pura)
+            const calculated = calculateMeasurementsFromLandmarks(
+              landmarksData.landmarks,
+              calibration,
+              isMale ? "male" : "female",
+              !!sidePreview
+            );
+
+            landmarkMeasurements = {
+              height_cm: calculated.height_cm,
+              shoulder_width_cm: calculated.shoulder_width_cm,
+              bust_cm: calculated.bust_cm,
+              underbust_cm: calculated.underbust_cm,
+              waist_cm: calculated.waist_cm,
+              hip_cm: calculated.hip_cm,
+              inseam_cm: calculated.inseam_cm,
+              arm_length_cm: calculated.arm_length_cm,
+              thigh_cm: calculated.thigh_cm,
+              neck_cm: calculated.neck_cm,
+              torso_length_cm: calculated.torso_length_cm,
+            };
+
+            // PASSO 3: Calcular tamanho (tabela ABNT, determinístico)
+            sizeResult = calculateSizeRecommendation(
+              { bust_cm: calculated.bust_cm, waist_cm: calculated.waist_cm, hip_cm: calculated.hip_cm },
+              isMale ? "male" : "female"
+            );
+
+            calculatedFromLandmarks = true;
+          }
+        }
+      }
+
+      // Medidas manuais têm prioridade sobre landmarks
+      const finalMeasurements = { ...landmarkMeasurements, ...measurements };
+
+      // Se tem medidas manuais suficientes, recalcula tamanho com elas (mais preciso)
+      if (measurements.bust_cm && measurements.waist_cm && measurements.hip_cm) {
+        const { calculateSizeRecommendation } = await import("@/lib/bodyMeasurement");
+        sizeResult = calculateSizeRecommendation(
+          { bust_cm: measurements.bust_cm, waist_cm: measurements.waist_cm, hip_cm: measurements.hip_cm },
+          isMale ? "male" : "female"
+        );
+      }
+
+      // PASSO 4: Gemini faz análise complementar (tipo corporal, estilo, fitness)
+      // Agora com medidas REAIS calculadas, não estimativas
+      const systemPrompt = `Você é o consultor de moda e fitness do app provAI. As medidas corporais já foram calculadas por visão computacional calibrada — NÃO recalcule. Use-as como verdade. Responda JSON válido em pt-BR.
+
+${sizingTables}`;
 
       const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-      userContent.push({ type: "text", text: `Analise e retorne JSON com: measurements (cada medida como {value, confidence} para height_cm, weight_kg, bust_cm, underbust_cm, waist_cm, hip_cm, shoulder_width_cm, inseam_cm, outseam_cm, arm_length_cm, thigh_cm, neck_cm, torso_length_cm), body_analysis (bmi, bmi_category, body_fat_estimate_pct, body_fat_range_low, body_fat_range_high, body_fat_method, body_fat_methodology_note, body_fat_breakdown:[{method,value,reference}], muscle_mass_kg, basal_metabolic_rate_kcal, body_fat_disclaimer, body_type, waist_to_hip_ratio, abdominal_risk), clothing_sizes (size_brazil, size_international, size_european, pants_number_brazil, bra_size, sizing_justification), tailoring (hem_adjustment_cm, hem_note, sleeve_adjustment_cm, sleeve_note, shoulder_fit, waist_fit_suggestion), style_recommendations (body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles, pattern_tips), quality_assessment (overall_confidence, photo_quality_issues, accuracy_note). DADOS: altura=${measurements.height_cm ?? "?"}cm, peso=${measurements.estimated_weight_kg ?? "?"}kg, busto=${measurements.bust_cm ?? "?"}cm, cintura=${measurements.waist_cm ?? "?"}cm, quadril=${measurements.hip_cm ?? "?"}cm, gênero=${gender}, idade=${age || "?"}, objetivo=${objective}, link produto=${productUrl || "nenhum"}, medidas extras=${JSON.stringify(measurements)}.` });
+      userContent.push({ type: "text", text: `MEDIDAS JÁ CALCULADAS (use como verdade, NÃO recalcule): ${JSON.stringify(finalMeasurements)}. TAMANHO JÁ DETERMINADO: ${sizeResult ? `${sizeResult.size_brazil} (${sizeResult.justification})` : "calcule com base nas medidas acima"}. Gênero=${gender}, idade=${age || "?"}, objetivo=${objective}, link=${productUrl || "nenhum"}. Retorne JSON com: body_analysis (bmi, bmi_category, body_fat_estimate_pct, body_fat_breakdown:[{method,value,reference}], body_type, waist_to_hip_ratio, abdominal_risk, basal_metabolic_rate_kcal, body_fat_disclaimer), clothing_sizes (size_brazil, size_international, size_european, pants_number_brazil, sizing_justification), tailoring (hem_note, sleeve_note, shoulder_fit, waist_fit_suggestion), style_recommendations (body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles, pattern_tips), quality_assessment (overall_confidence, accuracy_note).` });
+
+      if (frontPreview) {
+        userContent.push({ type: "image_url", image_url: { url: frontPreview } });
+      }
+
+      const rawText = await callGemini("gemini-2.5-flash", [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ], { jsonMode: true });
+
+      const data = JSON.parse(rawText.replace(/^```json\s*|\s*```$/g, ""));
+
+      // Sobrescreve medidas e sizing com os valores calculados localmente
+      if (!data.measurements) data.measurements = {};
+      for (const [k, v] of Object.entries(finalMeasurements)) {
+        if (v && Number(v) > 0) data.measurements[k] = { value: Number(v), confidence: calculatedFromLandmarks ? "alta" : "media" };
+      }
+      if (sizeResult) {
+        if (!data.clothing_sizes) data.clothing_sizes = {};
+        data.clothing_sizes.size_brazil = sizeResult.size_brazil;
+        data.clothing_sizes.size_international = sizeResult.size_international;
+        data.clothing_sizes.size_european = sizeResult.size_european;
+        data.clothing_sizes.pants_number_brazil = sizeResult.pants_number_brazil;
+        data.clothing_sizes.sizing_justification = sizeResult.justification;
+      }
+
+      setIsAnalyzing(false);
+
+      const result = normalizeAnalysis(data);
 
       if (frontPreview) {
         userContent.push({ type: "text", text: "FOTO FRONTAL:" });
