@@ -30,6 +30,11 @@ import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
 import { callGemini } from "@/lib/gemini";
 import { getSizingTablesForPrompt } from "@/lib/sizingTables";
+import {
+  LANDMARKS_PROMPT,
+  calculateMeasurementsFromLandmarks,
+  calculateSizeRecommendation,
+} from "@/lib/bodyMeasurement";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -885,7 +890,6 @@ const Index = () => {
 
       if (frontPreview) {
         // PASSO 1: Pedir landmarks ao Gemini
-        const { LANDMARKS_PROMPT, calculateMeasurementsFromLandmarks, calculateSizeRecommendation } = await import("@/lib/bodyMeasurement");
 
         const landmarksRaw = await callGemini("gemini-2.5-flash", [
           { role: "system", content: "Você é um detector de landmarks corporais. Retorne APENAS coordenadas em pixels. NÃO calcule medidas." },
@@ -949,7 +953,6 @@ const Index = () => {
 
       // Se tem medidas manuais suficientes, recalcula tamanho com elas (mais preciso)
       if (measurements.bust_cm && measurements.waist_cm && measurements.hip_cm) {
-        const { calculateSizeRecommendation } = await import("@/lib/bodyMeasurement");
         sizeResult = calculateSizeRecommendation(
           { bust_cm: measurements.bust_cm, waist_cm: measurements.waist_cm, hip_cm: measurements.hip_cm },
           isMale ? "male" : "female"
