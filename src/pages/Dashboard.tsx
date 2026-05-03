@@ -27,6 +27,7 @@ import { Ruler } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { CouponRedeem } from "@/components/CouponRedeem";
+import { UsageQuota } from "@/components/UsageQuota";
 
 // ---------- Tipos enxutos das tabelas ----------
 type BodyAssessment = {
@@ -202,8 +203,8 @@ export default function Dashboard() {
       {/* Nav */}
       <nav className="container flex items-center justify-between py-6">
         <Link to="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
-          <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm">U</span>
-          <span>provAI</span>
+          <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm">P</span>
+          <span>Pix AI</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link to="/">
@@ -227,8 +228,9 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Cupom promocional */}
-        <div className="mt-8">
+        <div className="mt-8 space-y-4">
           <CouponRedeem />
+          <UsageQuota />
         </div>
 
         {/* Stats */}

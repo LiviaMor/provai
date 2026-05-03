@@ -96,6 +96,65 @@ const Auth = () => {
     navigate("/painel", { replace: true });
   };
 
+  // Dev/demo login — cria ou loga com admin@pixai.app / admin123
+  const handleDevLogin = async () => {
+    const devEmail = "admin@pixai.app";
+    const devPassword = "admin123";
+    setBusy("login");
+
+    // Tenta logar primeiro
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: devEmail,
+      password: devPassword,
+    });
+
+    if (!loginError) {
+      navigate("/painel", { replace: true });
+      setBusy(null);
+      return;
+    }
+
+    // Se não existe, cria a conta (signUp com autoConfirm depende do config do Supabase)
+    const { data: signupData, error: signupError } = await supabase.auth.signUp({
+      email: devEmail,
+      password: devPassword,
+      options: { data: { full_name: "Admin Demo" } },
+    });
+
+    if (signupError) {
+      setBusy(null);
+      toast({
+        title: "Erro no login demo",
+        description: signupError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Se o signup retornou sessão (auto-confirm habilitado), já está logado
+    if (signupData?.session) {
+      navigate("/painel", { replace: true });
+      setBusy(null);
+      return;
+    }
+
+    // Se precisa confirmar email, tenta logar mesmo assim (alguns projetos permitem)
+    const { error: retryError } = await supabase.auth.signInWithPassword({
+      email: devEmail,
+      password: devPassword,
+    });
+
+    setBusy(null);
+    if (retryError) {
+      toast({
+        title: "Confirmação de email necessária",
+        description: "Desative 'Confirm email' no Supabase Dashboard → Authentication → Providers → Email. Ou use um email real para criar conta.",
+      });
+      return;
+    }
+    navigate("/painel", { replace: true });
+  };
+
   if (checking) {
     return (
       <div className="min-h-screen bg-app-radial grid place-items-center">
@@ -127,7 +186,7 @@ const Auth = () => {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-primary text-primary-foreground grid place-items-center mb-2">
                 <Sparkles className="h-6 w-6" />
               </div>
-              <CardTitle className="font-display text-2xl">Sua conta provAI</CardTitle>
+              <CardTitle className="font-display text-2xl">Sua conta Pix AI</CardTitle>
               <CardDescription>Acesse seu histórico, coloração e favoritos.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -144,6 +203,21 @@ const Auth = () => {
                   <GoogleIcon />
                 )}
                 Continuar com Google
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full rounded-full mt-2"
+                onClick={handleDevLogin}
+                disabled={!!busy}
+              >
+                {busy === "login" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Demo rápido (admin@pixai.app)
               </Button>
 
               <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">

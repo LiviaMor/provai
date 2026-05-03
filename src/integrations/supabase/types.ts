@@ -280,11 +280,14 @@ export type Database = {
           capture_preferences: Json
           company_name: string | null
           created_at: string
+          credits_used_this_month: number
           display_name: string | null
           id: string
+          monthly_credit_limit: number
           premium_access_until: string | null
           team_size: number
           updated_at: string
+          usage_reset_at: string
           user_id: string
         }
         Insert: {
@@ -293,11 +296,14 @@ export type Database = {
           capture_preferences?: Json
           company_name?: string | null
           created_at?: string
+          credits_used_this_month?: number
           display_name?: string | null
           id?: string
+          monthly_credit_limit?: number
           premium_access_until?: string | null
           team_size?: number
           updated_at?: string
+          usage_reset_at?: string
           user_id: string
         }
         Update: {
@@ -306,12 +312,54 @@ export type Database = {
           capture_preferences?: Json
           company_name?: string | null
           created_at?: string
+          credits_used_this_month?: number
           display_name?: string | null
           id?: string
+          monthly_credit_limit?: number
           premium_access_until?: string | null
           team_size?: number
           updated_at?: string
+          usage_reset_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      usage_tracking: {
+        Row: {
+          id: string
+          user_id: string
+          period: string
+          body_analyses: number
+          color_analyses: number
+          tryon_uses: number
+          scale_detections: number
+          total_credits_used: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          period: string
+          body_analyses?: number
+          color_analyses?: number
+          tryon_uses?: number
+          scale_detections?: number
+          total_credits_used?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          period?: string
+          body_analyses?: number
+          color_analyses?: number
+          tryon_uses?: number
+          scale_detections?: number
+          total_credits_used?: number
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -320,6 +368,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_usage_status: { Args: Record<string, never>; Returns: Json }
+      increment_usage: { Args: { _feature: string; _credits: number }; Returns: Json }
       redeem_coupon: { Args: { _code: string }; Returns: Json }
     }
     Enums: {

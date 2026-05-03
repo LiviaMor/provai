@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkAndIncrementQuota, quotaExceededResponse } from "../_shared/quota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +42,7 @@ type TryonPayload = {
   bodyType?: string;
   brandSize?: string;
   notes?: string;
+  category?: "auto" | "tops" | "bottoms" | "one-pieces";
 };
 
 const safeUrl = (raw?: string) => {
@@ -66,7 +68,7 @@ const fetchProductImages = async (raw?: string): Promise<{ images: string[]; con
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           url,
-          formats: ["markdown", "summary", { type: "json", prompt: "Liste todas as URLs de imagens do produto principal (campo product_images: array de URLs absolutas), nome, marca, cor, tecido e tabela de tamanhos. Em pt-BR." }],
+          formats: ["markdown", "summary", { type: "json", prompt: "Liste todas as URLs de imagens do produto principal (campo product_images: array de URLs absolutas), nome, marca, cor, tecido e tabela de tamanhos (campo size_chart: objeto com medidas por tamanho). Em pt-BR." }],
           onlyMainContent: true,
           waitFor: 2500,
           location: { country: "BR", languages: ["pt-BR"] },
@@ -77,7 +79,8 @@ const fetchProductImages = async (raw?: string): Promise<{ images: string[]; con
         const doc = data.data ?? data;
         const json = doc.json ?? {};
         const images: string[] = Array.isArray(json.product_images) ? json.product_images.filter((u: unknown) => typeof u === "string").slice(0, 4) : [];
-        const context = `Produto: ${json.name ?? ""} | Marca: ${json.brand ?? ""} | Cor: ${json.color ?? ""} | Tecido: ${json.fabric ?? ""} | Resumo: ${doc.summary ?? ""}`.slice(0, 2000);
+        const sizeChart = json.size_chart ? JSON.stringify(json.size_chart).slice(0, 1500) : "";
+        const context = `Produto: ${json.name ?? ""} | Marca: ${json.brand ?? ""} | Cor: ${json.color ?? ""} | Tecido: ${json.fabric ?? ""} | Tabela de tamanhos: ${sizeChart} | Resumo: ${doc.summary ?? ""}`.slice(0, 3000);
         return { images, context };
       }
     }
@@ -123,6 +126,105 @@ const urlToDataUrl = async (url: string): Promise<string | undefined> => {
   }
 };
 
+// ============================================================================
+// FASHN AI Integration
+// Docs: https://docs.fashn.ai/api-reference/tryon-v1-6
+// ============================================================================
+
+const FASHN_API_URL = "https://api.fashn.ai/v1";
+const FASHN_POLL_INTERVAL_MS = 2000;
+const FASHN_MAX_POLL_ATTEMPTS = 45; // max ~90 seconds
+
+type FashnStatus = {
+  id: string;
+  status: "starting" | "in_queue" | "processing" | "completed" | "failed";
+  output?: string[];
+  error?: string;
+};
+
+/**
+ * Submete um job de try-on ao FASHN AI e faz polling até completar.
+ * Retorna a URL da imagem gerada ou undefined em caso de falha.
+ */
+async function runFashnTryon(
+  fashnApiKey: string,
+  modelImage: string,
+  garmentImage: string,
+  category: "auto" | "tops" | "bottoms" | "one-pieces" = "auto"
+): Promise<{ imageUrl?: string; error?: string }> {
+  // 1. Submit the job
+  const runResponse = await fetch(`${FASHN_API_URL}/run`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${fashnApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model_name: "fashn/tryon",
+      inputs: {
+        model_image: modelImage,
+        garment_image: garmentImage,
+        category,
+        mode: "balanced",
+        segmentation_free: true,
+        garment_photo_type: "auto",
+        output_format: "jpeg",
+        return_base64: true,
+        num_samples: 1,
+      },
+    }),
+  });
+
+  if (!runResponse.ok) {
+    const errText = await runResponse.text();
+    console.error("FASHN /run error:", runResponse.status, errText);
+    if (runResponse.status === 401) return { error: "FASHN API key inválida." };
+    if (runResponse.status === 402) return { error: "Créditos FASHN esgotados." };
+    if (runResponse.status === 429) return { error: "Limite FASHN atingido. Aguarde." };
+    return { error: "Falha ao iniciar provador virtual." };
+  }
+
+  const runData = await runResponse.json();
+  const predictionId = runData.id;
+  if (!predictionId) {
+    console.error("FASHN no prediction ID:", runData);
+    return { error: "Resposta inesperada do provador." };
+  }
+
+  // 2. Poll for completion
+  for (let attempt = 0; attempt < FASHN_MAX_POLL_ATTEMPTS; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, FASHN_POLL_INTERVAL_MS));
+
+    const statusResponse = await fetch(`${FASHN_API_URL}/status/${predictionId}`, {
+      headers: { Authorization: `Bearer ${fashnApiKey}` },
+    });
+
+    if (!statusResponse.ok) {
+      console.error("FASHN /status error:", statusResponse.status);
+      continue;
+    }
+
+    const statusData = (await statusResponse.json()) as FashnStatus;
+
+    if (statusData.status === "completed") {
+      const imageUrl = statusData.output?.[0];
+      if (!imageUrl) return { error: "Provador completou mas sem imagem." };
+      return { imageUrl };
+    }
+
+    if (statusData.status === "failed") {
+      console.error("FASHN prediction failed:", statusData.error);
+      return { error: statusData.error ?? "Falha na geração da imagem." };
+    }
+
+    // Still processing — continue polling
+  }
+
+  return { error: "Timeout: provador demorou demais. Tente novamente." };
+}
+
+// ============================================================================
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -135,9 +237,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Envie uma foto do usuário (frente)." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return new Response(JSON.stringify({ error: "IA indisponível no momento." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // --- Quota check (2 créditos — feature mais cara) ---
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const quota = await checkAndIncrementQuota(authHeader, "tryon", 2);
+    if (!quota.allowed) {
+      return quotaExceededResponse(quota, corsHeaders);
+    }
 
+    // --- Resolve garment image ---
     let garmentDataUrl = payload.garmentImageDataUrl;
     let productContext = "";
     if (!garmentDataUrl && payload.productUrl) {
@@ -153,73 +260,103 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Não foi possível obter a imagem da roupa. Tente outro link ou faça upload da peça." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const measurementsText = payload.measurements ? Object.entries(payload.measurements).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(", ") : "sem medidas";
-
-    const tryonPrompt = `Crie uma fotografia ultra-realista, fotogênica e respeitosa, mostrando a MESMA pessoa da primeira imagem vestindo a roupa exata da segunda imagem. Mantenha rosto, tom de pele, cabelo, altura e proporções corporais idênticos à foto original. A peça deve cair naturalmente respeitando estas medidas reais (cm): ${measurementsText}. Gênero/modelagem: ${payload.gender ?? "neutro"}. Tipo corporal: ${payload.bodyType ?? "natural"}. Tamanho indicado: ${payload.brandSize ?? "—"}. Iluminação de estúdio difusa, fundo neutro claro, pose frontal natural, qualidade editorial de e-commerce. Não distorça o corpo, não altere identidade, não adicione marcas d'água ou texto.`;
-
-    const imageGen = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: tryonPrompt },
-              { type: "image_url", image_url: { url: payload.userImageDataUrl } },
-              { type: "image_url", image_url: { url: garmentDataUrl } },
-            ],
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (imageGen.status === 429) return new Response(JSON.stringify({ error: "Limite de IA atingido. Aguarde alguns minutos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (imageGen.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (!imageGen.ok) {
-      console.error("Image gen error", imageGen.status, await imageGen.text());
-      return new Response(JSON.stringify({ error: "Falha ao gerar provador virtual." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // --- FASHN AI: Generate try-on image ---
+    const fashnApiKey = Deno.env.get("FASHN_API_KEY");
+    if (!fashnApiKey) {
+      return new Response(JSON.stringify({ error: "Provador virtual indisponível (FASHN_API_KEY não configurada)." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const imageData = await imageGen.json();
-    const generatedImageUrl: string | undefined = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const category = payload.category ?? "auto";
+    const fashnResult = await runFashnTryon(fashnApiKey, payload.userImageDataUrl, garmentDataUrl, category);
 
-    const advicePrompt = `Você é o estilista e color analyst do app Encaixe. Analise visualmente a PRIMEIRA imagem (pessoa) para detectar automaticamente o subtom de pele observando bochechas, pescoço e veias aparentes; identifique também a estação cromática (primavera quente, verão frio, outono quente, inverno frio etc.). Analise a SEGUNDA imagem (peça) para extrair a cor dominante da roupa em hex aproximado. Com base na peça (${productContext || "imagem fornecida"}), nas medidas (${measurementsText}), tipo corporal ${payload.bodyType ?? "—"}, tamanho indicado ${payload.brandSize ?? "—"} e contexto: ${payload.notes ?? "—"}, responda APENAS JSON em pt-BR no formato exato: {"size_advice": "frase com tamanho ideal e por quê", "fit_notes": ["pontos de atenção de caimento"], "combinations": [{"title": "look 1", "pieces": ["peça 1", "peça 2"], "occasion": "ocasião"}], "color_palette": {"undertone": "quente|frio|neutro", "season": "primavera quente|verão frio|outono quente|inverno frio|...", "skin_tone_hex": "#hex aproximado da pele", "garment_color_hex": "#hex da peça", "garment_color_name": "nome da cor da peça", "harmony_with_garment": "alta|media|baixa", "harmony_explanation": "como a cor da peça dialoga com seu subtom", "best_colors": [{"name":"nome","hex":"#hex"}, ...4-6 itens], "avoid_colors": [{"name":"nome","hex":"#hex"}, ...2-3 itens], "neutrals": [{"name":"nome","hex":"#hex"}, ...2-3 itens], "metals": ["dourado|prateado|rose gold"], "combine_guide": [{"role":"calça/saia","suggestion":"cor sugerida + por quê","hex":"#hex"}, {"role":"sapato","suggestion":"...","hex":"#hex"}, {"role":"acessório","suggestion":"...","hex":"#hex"}], "rationale": "explicação curta de colorimetria personalizada"}, "confidence": "alta|media|baixa"}. Use hex válidos (#RRGGBB). Se não conseguir detectar com segurança, marque confidence baixa e explique no rationale.`;
+    if (fashnResult.error || !fashnResult.imageUrl) {
+      return new Response(JSON.stringify({ error: fashnResult.error ?? "Falha ao gerar provador virtual." }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const adviceResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "Você é estilista de moda especialista em colorimetria e caimento. Responda apenas JSON válido em pt-BR." },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: advicePrompt },
-              { type: "image_url", image_url: { url: payload.userImageDataUrl } },
-              { type: "image_url", image_url: { url: garmentDataUrl } },
-            ],
-          },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
+    // --- Gemini Flash: Styling advice (parallel-safe, runs after image is ready) ---
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    let advice: Record<string, unknown> = {};
 
-    let advice: any = {};
-    if (adviceResp.ok) {
-      const adviceData = await adviceResp.json();
-      const content = adviceData.choices?.[0]?.message?.content;
+    if (lovableApiKey) {
+      const measurementsText = payload.measurements
+        ? Object.entries(payload.measurements).filter(([, v]) => v).map(([k, v]) => `${k}=${v}cm`).join(", ")
+        : "sem medidas informadas";
+
+      const advicePrompt = `Você é o consultor de moda e sizing do app Encaixe. Com base nos dados abaixo, responda APENAS JSON válido em pt-BR.
+
+DADOS DO CLIENTE:
+- Medidas corporais: ${measurementsText}
+- Tipo corporal: ${payload.bodyType ?? "não informado"}
+- Gênero/modelagem: ${payload.gender ?? "não informado"}
+- Tamanho indicado pelo cliente: ${payload.brandSize ?? "não informado"}
+
+DADOS DO PRODUTO:
+${productContext || "Imagem da peça fornecida (sem dados de tabela de medidas)."}
+- Notas do cliente: ${payload.notes ?? "nenhuma"}
+
+RESPONDA no formato exato:
+{
+  "size_advice": "Recomendação clara de tamanho (P/M/G/GG ou número) com justificativa baseada nas medidas vs tabela da marca. Se não houver tabela, use heurísticas padrão brasileiras.",
+  "fit_notes": ["ponto de atenção 1 sobre caimento", "ponto 2", "ponto 3"],
+  "confidence": "alta|media|baixa",
+  "combinations": [
+    {"title": "Look 1", "pieces": ["peça complementar 1", "peça 2"], "occasion": "ocasião"}
+  ],
+  "color_harmony": {
+    "garment_color_name": "nome da cor da peça",
+    "harmony_with_skin": "alta|media|baixa",
+    "explanation": "como a cor dialoga com o subtom do cliente",
+    "combine_with": [{"piece": "calça/saia/sapato", "color": "cor sugerida", "why": "motivo"}]
+  }
+}
+
+Se não tiver dados suficientes para algum campo, use "confidence": "baixa" e explique.`;
+
       try {
-        advice = typeof content === "string" ? JSON.parse(content.replace(/^```json\s*|\s*```$/g, "")) : content;
+        const adviceResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: "Você é consultor de moda especialista em sizing e colorimetria. Responda apenas JSON válido em pt-BR." },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: advicePrompt },
+                  { type: "image_url", image_url: { url: payload.userImageDataUrl } },
+                  { type: "image_url", image_url: { url: garmentDataUrl } },
+                ],
+              },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (adviceResp.ok) {
+          const adviceData = await adviceResp.json();
+          const content = adviceData.choices?.[0]?.message?.content;
+          try {
+            advice = typeof content === "string" ? JSON.parse(content.replace(/^```json\s*|\s*```$/g, "")) : (content ?? {});
+          } catch (e) {
+            console.error("Advice parse error", e);
+          }
+        }
       } catch (e) {
-        console.error("Advice parse error", e);
+        console.error("Advice call failed (non-blocking):", e);
       }
     }
 
-    return new Response(JSON.stringify({ tryonImage: generatedImageUrl, advice, productContext }), {
+    // --- Return combined result ---
+    return new Response(JSON.stringify({
+      tryonImage: fashnResult.imageUrl,
+      advice,
+      productContext: productContext.slice(0, 500),
+      provider: "fashn-v1.6",
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

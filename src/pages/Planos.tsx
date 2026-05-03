@@ -26,10 +26,10 @@ const TIERS: Tier[] = [
     range: "1–5 usuários",
     min: 1,
     max: 5,
-    price: 49.9,
+    price: 149.9,
     perks: [
-      "Avaliações corporais ilimitadas",
-      "Análise de coloração",
+      "30 análises/seat/mês incluídas",
+      "Análise corporal + coloração",
       "Recomendações de tamanho",
       "Suporte por e-mail",
     ],
@@ -41,11 +41,12 @@ const TIERS: Tier[] = [
     range: "6–20 usuários",
     min: 6,
     max: 20,
-    price: 69.9,
+    price: 99.9,
     perks: [
       "Tudo do Starter",
+      "40 análises/seat/mês incluídas",
+      "Provador virtual incluso",
       "Painel B2B com múltiplos seats",
-      "Catálogo de favoritos compartilhado",
       "Suporte prioritário",
     ],
     cta: "Escolher Growth",
@@ -57,9 +58,10 @@ const TIERS: Tier[] = [
     range: "21–50 usuários",
     min: 21,
     max: 50,
-    price: 99.9,
+    price: 79.9,
     perks: [
       "Tudo do Growth",
+      "60 análises/seat/mês incluídas",
       "Onboarding guiado",
       "Branding personalizado",
       "SLA dedicado",
@@ -75,6 +77,7 @@ const TIERS: Tier[] = [
     price: null,
     perks: [
       "Tudo do Scale",
+      "Análises ilimitadas",
       "Integrações customizadas",
       "Gestor de conta dedicado",
       "Contrato e faturamento sob medida",
@@ -161,7 +164,7 @@ export default function Planos() {
                   {tier.price !== null ? (
                     <>
                       <span className="font-display text-3xl">{formatBRL(tier.price)}</span>
-                      <span className="text-muted-foreground text-sm">/mês</span>
+                      <span className="text-muted-foreground text-sm">/seat/mês</span>
                     </>
                   ) : (
                     <span className="font-display text-2xl">Sob consulta</span>
@@ -171,7 +174,7 @@ export default function Planos() {
                   <a
                     href={
                       tier.price === null
-                        ? "mailto:contato@ultraprovador.com?subject=Plano%20Enterprise"
+                        ? "mailto:contato@pixai.app?subject=Plano%20Enterprise"
                         : "/auth"
                     }
                   >
@@ -216,7 +219,7 @@ export default function Planos() {
                       {t.price !== null ? (
                         <>
                           <span className="font-display text-3xl">{formatBRL(t.price)}</span>
-                          <span className="text-muted-foreground text-sm">/mês</span>
+                          <span className="text-muted-foreground text-sm">/seat/mês</span>
                         </>
                       ) : (
                         <span className="font-display text-2xl">Sob consulta</span>
@@ -238,7 +241,7 @@ export default function Planos() {
                       <a
                         href={
                           t.price === null
-                            ? "mailto:contato@ultraprovador.com?subject=Plano%20Enterprise"
+                            ? "mailto:contato@pixai.app?subject=Plano%20Enterprise"
                             : "/auth"
                         }
                       >

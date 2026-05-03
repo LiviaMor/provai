@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkAndIncrementQuota, quotaExceededResponse } from "../_shared/quota.ts";
+import { buildCacheKey, getCachedResult, setCachedResult } from "../_shared/cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,6 +238,32 @@ serve(async (req) => {
       });
     }
 
+    // --- Quota check ---
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const quota = await checkAndIncrementQuota(authHeader, "body", 1);
+    if (!quota.allowed) {
+      return quotaExceededResponse(quota, corsHeaders);
+    }
+
+    // --- Cache check ---
+    const supabaseForUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user: currentUser } } = await supabaseForUser.auth.getUser();
+    const userId = currentUser?.id ?? "anonymous";
+    const cacheKey = buildCacheKey("body", userId, {
+      imageDataUrl: payload.imageDataUrl,
+      sideImageDataUrl: payload.sideImageDataUrl,
+      heightCm: payload.heightCm,
+      weightKg: payload.weightKg,
+      age: payload.age,
+      gender: payload.gender,
+      productUrl: payload.productUrl,
+    });
+    const cached = await getCachedResult(cacheKey);
+    if (cached) {
+      return new Response(JSON.stringify(cached), {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "X-Cache": "HIT" },
+      });
+    }
     const productContext = await fetchProductContext(payload.productUrl);
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -329,7 +357,12 @@ Use fotos frontal/lateral quando existirem, medidas manuais e contexto da págin
     const content = data.choices?.[0]?.message?.content;
     const parsed = typeof content === "string" ? JSON.parse(content.replace(/^```json\s*|\s*```$/g, "")) : content;
 
-    return new Response(JSON.stringify(parsed ?? fallbackAnalysis(payload)), {
+    const finalResult = parsed ?? fallbackAnalysis(payload);
+
+    // Cache the result (fire and forget)
+    setCachedResult(cacheKey, userId, "body", finalResult).catch(() => {});
+
+    return new Response(JSON.stringify(finalResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

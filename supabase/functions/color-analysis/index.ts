@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkAndIncrementQuota, quotaExceededResponse } from "../_shared/quota.ts";
+import { buildCacheKey, getCachedResult, setCachedResult } from "../_shared/cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -710,6 +712,25 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Envie ao menos 1 foto do rosto." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // --- Quota check ---
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const quota = await checkAndIncrementQuota(authHeader, "color", 1);
+    if (!quota.allowed) {
+      return quotaExceededResponse(quota, corsHeaders);
+    }
+
+    // --- Cache check ---
+    const supabaseForUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user: currentUser } } = await supabaseForUser.auth.getUser();
+    const userId = currentUser?.id ?? "anonymous";
+    const cacheKey = buildCacheKey("color", userId, { images: valid.map(img => `${img.length}:${img.slice(0, 80)}`) });
+    const cached = await getCachedResult(cacheKey);
+    if (cached) {
+      return new Response(JSON.stringify(cached), {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "X-Cache": "HIT" },
+      });
+    }
+
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) return new Response(JSON.stringify({ error: "IA indisponível no momento." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -825,6 +846,10 @@ IMPORTANTE: o array "wardrobe" deve ter EXATAMENTE 5 itens cobrindo, nesta ordem
     }
 
     const analysis = normalizeAnalysis(parsed);
+
+    // Cache the result (fire and forget)
+    setCachedResult(cacheKey, userId, "color", { analysis }).catch(() => {});
+
     return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("color-analysis error", error);

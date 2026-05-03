@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkAndIncrementQuota, quotaExceededResponse } from "../_shared/quota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +52,13 @@ serve(async (req) => {
       });
     }
 
+    // --- Quota check (1 crédito, barato no Flash) ---
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const quota = await checkAndIncrementQuota(authHeader, "scale", 1);
+    if (!quota.allowed) {
+      return quotaExceededResponse(quota, corsHeaders);
+    }
+
     const markerType = (body.markerType ?? "card") as keyof typeof MARKER_SIZES_CM;
     const reference = MARKER_SIZES_CM[markerType];
     if (!reference && !body.customLongSideCm) {
@@ -96,6 +104,7 @@ REGRAS:
 
 Tamanho físico conhecido: lado maior = ${longSideCm} cm${shortSideCm ? `, lado menor = ${shortSideCm} cm` : ""}.`;
 
+    // Usa Gemini Flash para detecção de marcador (tarefa simples, 5x mais barato que Pro)
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -103,7 +112,7 @@ Tamanho físico conhecido: lado maior = ${longSideCm} cm${shortSideCm ? `, lado 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: system },
           {
