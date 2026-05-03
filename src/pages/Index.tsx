@@ -992,26 +992,6 @@ ${sizingTables}`;
       setIsAnalyzing(false);
 
       const result = normalizeAnalysis(data);
-
-      if (frontPreview) {
-        userContent.push({ type: "text", text: "FOTO FRONTAL:" });
-        userContent.push({ type: "image_url", image_url: { url: frontPreview } });
-      }
-      if (sidePreview) {
-        userContent.push({ type: "text", text: "FOTO LATERAL:" });
-        userContent.push({ type: "image_url", image_url: { url: sidePreview } });
-      }
-
-      const rawText = await callGemini("gemini-2.5-flash", [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ], { jsonMode: true });
-
-      const data = JSON.parse(rawText.replace(/^```json\s*|\s*```$/g, ""));
-
-      setIsAnalyzing(false);
-
-      const result = normalizeAnalysis(data);
     // Medidas manuais informadas pelo usuário têm prioridade sobre a estimativa da IA.
     result.measurements = { ...result.measurements, ...measurements };
     result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
