@@ -1,10 +1,8 @@
 // Direct Gemini API client for frontend
 // Calls Google's generativelanguage API directly from the browser
-// This avoids the need for Supabase Edge Functions
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-// API key stored in env (VITE_ prefix for frontend access)
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
 type ContentPart =
@@ -15,6 +13,37 @@ type GeminiMessage = {
   role: "user" | "model";
   parts: ContentPart[];
 };
+
+/**
+ * Comprime uma imagem data URL para no máximo maxSizeKB.
+ * Retorna a imagem comprimida como data URL.
+ */
+async function compressImageForApi(dataUrl: string, maxWidthPx = 1024, quality = 0.7): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+
+      // Redimensiona se maior que maxWidth
+      if (width > maxWidthPx) {
+        height = Math.round((height * maxWidthPx) / width);
+        width = maxWidthPx;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Converte para JPEG comprimido
+      const compressed = canvas.toDataURL("image/jpeg", quality);
+      resolve(compressed);
+    };
+    img.onerror = () => resolve(dataUrl); // fallback: retorna original
+    img.src = dataUrl;
+  });
+}
 
 function dataUrlToInlinePart(dataUrl: string): ContentPart {
   const commaIdx = dataUrl.indexOf(",");
@@ -35,7 +64,7 @@ export async function callGemini(
   options?: { jsonMode?: boolean }
 ): Promise<string> {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("VITE_GEMINI_API_KEY não configurada.");
+  if (!apiKey) throw new Error("Chave de API não configurada. Adicione VITE_GEMINI_API_KEY nas variáveis de ambiente do Vercel.");
 
   let systemText = "";
   const contents: GeminiMessage[] = [];
@@ -56,7 +85,9 @@ export async function callGemini(
         if (part.type === "text" && part.text) {
           parts.push({ text: part.text });
         } else if (part.type === "image_url" && part.image_url?.url?.startsWith("data:")) {
-          parts.push(dataUrlToInlinePart(part.image_url.url));
+          // Comprimir imagem antes de enviar (evita 400 por payload grande)
+          const compressed = await compressImageForApi(part.image_url.url, 1024, 0.75);
+          parts.push(dataUrlToInlinePart(compressed));
         }
       }
     }
@@ -68,6 +99,7 @@ export async function callGemini(
     contents,
     generationConfig: {
       ...(options?.jsonMode && { responseMimeType: "application/json" }),
+      maxOutputTokens: 8192,
     },
   };
 
@@ -75,7 +107,12 @@ export async function callGemini(
     body.systemInstruction = { parts: [{ text: systemText }] };
   }
 
-  const url = `${GEMINI_BASE_URL}/models/${model}:generateContent?key=${apiKey}`;
+  // Modelo: usar gemini-2.0-flash (nome correto na API direta do Google)
+  // gemini-2.5-flash não existe na API pública ainda — é "gemini-2.0-flash" ou "gemini-1.5-flash"
+  const modelName = model === "gemini-2.5-flash" ? "gemini-2.0-flash" : model;
+  const url = `${GEMINI_BASE_URL}/models/${modelName}:generateContent?key=${apiKey}`;
+
+  console.log(`[provAI] Calling Gemini ${modelName}...`);
 
   const response = await fetch(url, {
     method: "POST",
@@ -86,13 +123,38 @@ export async function callGemini(
   if (!response.ok) {
     const errText = await response.text();
     console.error("Gemini API error:", response.status, errText);
-    if (response.status === 429) throw new Error("Limite de requisições atingido. Aguarde alguns minutos.");
-    if (response.status === 403) throw new Error("API key inválida. Configure VITE_GEMINI_API_KEY no .env");
-    throw new Error(`Erro na API: ${response.status}`);
+
+    if (response.status === 400) {
+      // Parse error details
+      try {
+        const errData = JSON.parse(errText);
+        const msg = errData?.error?.message ?? errText;
+        if (msg.includes("API_KEY")) throw new Error("Chave de API inválida. Verifique VITE_GEMINI_API_KEY.");
+        if (msg.includes("size") || msg.includes("too large")) throw new Error("Imagem muito grande. Tente com uma foto menor.");
+        if (msg.includes("model")) throw new Error(`Modelo "${modelName}" não disponível. Verifique sua chave.`);
+        throw new Error(`Erro 400: ${msg.slice(0, 200)}`);
+      } catch (e) {
+        if (e instanceof Error && !e.message.startsWith("Erro 400")) throw e;
+        throw new Error(`Erro na API (400): ${errText.slice(0, 200)}`);
+      }
+    }
+    if (response.status === 429) throw new Error("Limite de requisições atingido. Aguarde 1 minuto e tente novamente.");
+    if (response.status === 403) throw new Error("Chave de API sem permissão. Verifique se a API Generative Language está habilitada no Google Cloud.");
+    throw new Error(`Erro na API Gemini: ${response.status}`);
   }
 
   const data = await response.json();
+
+  // Check for blocked content
+  if (data.candidates?.[0]?.finishReason === "SAFETY") {
+    throw new Error("A imagem foi bloqueada por filtros de segurança. Tente outra foto.");
+  }
+
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Resposta vazia do Gemini.");
+  if (!text) {
+    console.error("Gemini empty response:", JSON.stringify(data).slice(0, 500));
+    throw new Error("Resposta vazia do Gemini. Tente novamente.");
+  }
+
   return text;
 }
