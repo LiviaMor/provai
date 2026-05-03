@@ -204,7 +204,7 @@ export default function Dashboard() {
       <nav className="container flex items-center justify-between py-6">
         <Link to="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
           <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm">P</span>
-          <span>Pix AI</span>
+          <span>provAI</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link to="/">

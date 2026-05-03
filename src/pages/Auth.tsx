@@ -96,9 +96,9 @@ const Auth = () => {
     navigate("/painel", { replace: true });
   };
 
-  // Dev/demo login — cria ou loga com admin@pixai.app / admin123
+  // Dev/demo login — cria ou loga com admin@provai.app / admin123
   const handleDevLogin = async () => {
-    const devEmail = "admin@pixai.app";
+    const devEmail = "admin@provai.app";
     const devPassword = "admin123";
     setBusy("login");
 
@@ -186,7 +186,7 @@ const Auth = () => {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-primary text-primary-foreground grid place-items-center mb-2">
                 <Sparkles className="h-6 w-6" />
               </div>
-              <CardTitle className="font-display text-2xl">Sua conta Pix AI</CardTitle>
+              <CardTitle className="font-display text-2xl">Sua conta provAI</CardTitle>
               <CardDescription>Acesse seu histórico, coloração e favoritos.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -217,7 +217,7 @@ const Auth = () => {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                Demo rápido (admin@pixai.app)
+                Demo rápido (admin@provai.app)
               </Button>
 
               <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">

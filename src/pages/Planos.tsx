@@ -174,7 +174,7 @@ export default function Planos() {
                   <a
                     href={
                       tier.price === null
-                        ? "mailto:contato@pixai.app?subject=Plano%20Enterprise"
+                        ? "mailto:contato@provai.app?subject=Plano%20Enterprise"
                         : "/auth"
                     }
                   >
@@ -241,7 +241,7 @@ export default function Planos() {
                       <a
                         href={
                           t.price === null
-                            ? "mailto:contato@pixai.app?subject=Plano%20Enterprise"
+                            ? "mailto:contato@provai.app?subject=Plano%20Enterprise"
                             : "/auth"
                         }
                       >

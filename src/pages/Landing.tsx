@@ -34,7 +34,7 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-4">
           <Link to="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
             <span className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-bold">P</span>
-            <span>Pix AI</span>
+            <span>provAI</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/planos">
@@ -213,7 +213,7 @@ export default function Landing() {
       <section className="bg-card/50 border-y border-border/40 py-20">
         <div className="mx-auto max-w-6xl px-5">
           <div className="text-center max-w-2xl mx-auto">
-            <h2 className="font-display text-3xl sm:text-4xl">Por que o Pix AI é diferente</h2>
+            <h2 className="font-display text-3xl sm:text-4xl">Por que o provAI é diferente</h2>
             <p className="mt-3 text-muted-foreground">
               Não somos um organizador de closet. Somos a ferramenta que faz a venda acontecer.
             </p>
@@ -331,7 +331,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-border/40 py-8">
         <div className="mx-auto max-w-6xl px-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <span>© 2026 Pix AI. Todos os direitos reservados.</span>
+          <span>© 2026 provAI. Todos os direitos reservados.</span>
           <div className="flex gap-4">
             <Link to="/planos" className="hover:text-foreground">Planos</Link>
             <Link to="/coloracao" className="hover:text-foreground">Colorimetria</Link>
