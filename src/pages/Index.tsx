@@ -27,7 +27,7 @@ import {
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -533,7 +533,11 @@ const CalibrationHistory = ({ entries }: { entries: CalibrationEntry[] }) => {
 };
 
 const Index = () => {
-  const [mode, setMode] = useState<FlowMode>("home");
+  const [searchParams] = useSearchParams();
+  const initialMode = (searchParams.get("mode") as FlowMode) || "home";
+  const [mode, setMode] = useState<FlowMode>(
+    initialMode === "photo" || initialMode === "manual" ? initialMode : "home"
+  );
   const temporaryPhotos = useMemo(readTemporaryPhotos, []);
   const [frontPreview, setFrontPreview] = useState(temporaryPhotos.frontPreview);
   const [sidePreview, setSidePreview] = useState(temporaryPhotos.sidePreview);

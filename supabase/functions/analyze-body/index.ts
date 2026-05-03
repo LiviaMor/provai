@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkAndIncrementQuota, quotaExceededResponse } from "../_shared/quota.ts";
 import { buildCacheKey, getCachedResult, setCachedResult } from "../_shared/cache.ts";
+import { callGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -266,10 +267,7 @@ serve(async (req) => {
     }
     const productContext = await fetchProductContext(payload.productUrl);
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return new Response(JSON.stringify(fallbackAnalysis(payload)), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-    const system = `Você é o motor de visão por IA do app Encaixe, equivalente a um GPT-4o Vision para análise multimodal de fotos corporais, tamanhos de roupa, estilo e avaliação nutricional/fitness em português brasileiro. Responda somente JSON válido.
+    const system = `Você é o motor de visão por IA do app provAI, equivalente a um GPT-4o Vision para análise multimodal de fotos corporais, tamanhos de roupa, estilo e avaliação nutricional/fitness em português brasileiro. Responda somente JSON válido.
 
 Para a estimativa de PERCENTUAL DE GORDURA CORPORAL, use SEMPRE fórmulas validadas em literatura científica e NUNCA chutes visuais:
 1) CUN-BAE (Gómez-Ambrosi et al., Diabetes Care 2012, validado vs. DEXA, R²≈0,86): %BF = -44.988 + 0.503*idade + 10.689*sexo + 3.172*IMC - 0.026*IMC² + 0.181*IMC*sexo - 0.02*IMC*idade - 0.005*IMC²*sexo + 0.00021*IMC²*idade. (sexo: homem=1, mulher=0)
@@ -318,45 +316,23 @@ Use fotos frontal/lateral quando existirem, medidas manuais e contexto da págin
       imageMessages.push({ type: "image_url", image_url: { url: payload.sideImageDataUrl } });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: system },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userText },
-              ...imageMessages,
-            ],
-          },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (response.status === 429) {
-      return new Response(JSON.stringify({ error: "Limite de IA atingido. Tente novamente em alguns minutos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace para continuar." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    if (!response.ok) {
-      console.error("AI gateway returned", response.status, await response.text());
+    let rawText: string;
+    try {
+      rawText = await callGemini("gemini-2.5-flash", [
+        { role: "system", content: system },
+        { role: "user", content: [{ type: "text", text: userText }, ...imageMessages] },
+      ], { jsonMode: true });
+    } catch (e: any) {
+      if (e?.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de IA atingido. Tente novamente em alguns minutos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("analyze-body gemini error", e);
       return new Response(JSON.stringify(fallbackAnalysis(payload)), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    const parsed = typeof content === "string" ? JSON.parse(content.replace(/^```json\s*|\s*```$/g, "")) : content;
-
+    const parsed = JSON.parse(rawText.replace(/^```json\s*|\s*```$/g, ""));
     const finalResult = parsed ?? fallbackAnalysis(payload);
 
     // Cache the result (fire and forget)

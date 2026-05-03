@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkAndIncrementQuota, quotaExceededResponse } from "../_shared/quota.ts";
 import { buildCacheKey, getCachedResult, setCachedResult } from "../_shared/cache.ts";
+import { callGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -731,9 +732,6 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return new Response(JSON.stringify({ error: "IA indisponível no momento." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
     const systemPrompt = `Você é uma consultora de imagem brasileira de altíssimo padrão, especialista em colorimetria pessoal pelos métodos das 12 estações (Sci\\ART, Color Me Beautiful) e harmonia cromática profissional. Analise visualmente as fotos enviadas observando pele (bochechas, pescoço, têmporas, veias), olhos (íris, limbo, brilho), cabelo (raiz, fios, brilho) e contraste natural. Responda APENAS JSON válido em pt-BR. Todos os hex DEVEM estar no formato #RRGGBB válido. Nunca devolva campos vazios — se tiver baixa certeza, use a melhor aproximação coerente com a estação detectada.`;
 
     const seasonsList = KNOWN_SEASONS.join(", ");
@@ -813,35 +811,23 @@ IMPORTANTE: o array "wardrobe" deve ter EXATAMENTE 5 itens cobrindo, nesta ordem
     const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [{ type: "text", text: userPrompt }];
     for (const img of valid) content.push({ type: "image_url", image_url: { url: img } });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (response.status === 429) return new Response(JSON.stringify({ error: "Limite de IA atingido. Aguarde alguns minutos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (response.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("color-analysis gateway", response.status, err);
+    let rawText: string;
+    try {
+      rawText = await callGemini("gemini-2.5-flash", [
+        { role: "system", content: systemPrompt },
+        { role: "user", content },
+      ], { jsonMode: true });
+    } catch (e: any) {
+      if (e?.status === 429) return new Response(JSON.stringify({ error: "Limite de IA atingido. Aguarde alguns minutos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("color-analysis gemini error", e);
       return new Response(JSON.stringify({ error: "Falha ao gerar análise." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content;
     let parsed: Record<string, unknown> = {};
     try {
-      parsed = typeof raw === "string" ? JSON.parse(raw.replace(/^```json\s*|\s*```$/g, "")) : (raw ?? {});
+      parsed = JSON.parse(rawText.replace(/^```json\s*|\s*```$/g, ""));
     } catch (e) {
-      console.error("parse error", e, raw);
-      // ainda assim normaliza com defaults usando o melhor palpite
+      console.error("parse error", e, rawText);
       parsed = {};
     }
 
