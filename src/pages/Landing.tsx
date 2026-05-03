@@ -117,6 +117,38 @@ export default function Landing() {
             <strong className="text-foreground">150+</strong> consultoras já usam esta semana
           </span>
         </motion.div>
+
+        {/* Scanner visual */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+          className="mt-14 mx-auto max-w-sm"
+        >
+          <div className="relative aspect-[3/4] rounded-[2rem] border-2 border-primary/30 bg-gradient-to-b from-card/80 to-secondary/60 overflow-hidden shadow-panel">
+            {/* Body silhouette */}
+            <div className="absolute left-1/2 top-12 size-16 -translate-x-1/2 rounded-full border-2 border-primary/40" />
+            <div className="absolute left-1/2 top-28 h-48 w-24 -translate-x-1/2 rounded-full border-2 border-accent/50" />
+            <div className="absolute left-1/2 top-[11rem] h-36 w-16 -translate-x-1/2 border-x-2 border-primary/30" />
+
+            {/* Scan line animation */}
+            <div className="absolute inset-x-4 top-0 h-20 animate-scan bg-scanner-line" />
+
+            {/* Grid overlay */}
+            <div className="absolute inset-0 scan-grid rounded-[2rem] opacity-40" />
+
+            {/* Measurement labels */}
+            <div className="absolute top-20 left-3 text-[9px] font-mono text-primary/70 bg-card/80 px-1.5 py-0.5 rounded">busto 92cm</div>
+            <div className="absolute top-36 right-3 text-[9px] font-mono text-accent/80 bg-card/80 px-1.5 py-0.5 rounded">cintura 74cm</div>
+            <div className="absolute top-52 left-3 text-[9px] font-mono text-primary/70 bg-card/80 px-1.5 py-0.5 rounded">quadril 99cm</div>
+
+            {/* Bottom badge */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur border border-border rounded-full px-4 py-1.5 text-xs font-medium text-foreground shadow-lg">
+              <Sparkles className="h-3 w-3 inline mr-1.5 text-accent" />
+              Escaneando medidas...
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       {/* Features grid */}
