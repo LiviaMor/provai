@@ -1572,24 +1572,14 @@ ${sizingTables}`;
                 </>
               )}
 
-              <div className="rounded-2xl border bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">
-                <span className="font-bold text-primary">★ Recomendado:</span> preencha pelo menos <span className="font-semibold text-foreground">altura*, peso*, cintura*, quadril* e busto*</span> para uma avaliação muito mais precisa (calibração da escala, IMC, silhueta e tamanho).
-              </div>
+              {/* Campos essenciais (sempre visíveis) */}
               <div className="grid grid-cols-2 gap-3">
-                {manualFields.map((field) => (
-                  <div key={field.key} className="space-y-2">
-                    <Label htmlFor={field.key} className="flex items-center gap-1">
-                      {field.recommended && <span className="text-primary" title={field.hint}>★</span>}
-                      {field.label}
-                      {field.recommended && <span className="text-primary">*</span>}
-                    </Label>
-                    <Input id={field.key} inputMode="decimal" value={manual[field.key] ?? ""} onChange={(event) => setManual((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} />
-                    {field.recommended && field.hint && <p className="text-[11px] leading-4 text-muted-foreground">{field.hint}</p>}
-                  </div>
-                ))}
                 <div className="space-y-2">
-                  <Label htmlFor="age">Idade</Label>
-                  <Input id="age" inputMode="numeric" value={age} onChange={(event) => setAge(event.target.value)} placeholder="32" />
+                  <Label htmlFor="height_cm" className="flex items-center gap-1">
+                    <span className="text-primary">★</span> Altura (cm) <span className="text-primary">*</span>
+                  </Label>
+                  <Input id="height_cm" inputMode="decimal" value={manual["height_cm"] ?? ""} onChange={(event) => setManual((prev) => ({ ...prev, height_cm: event.target.value }))} placeholder="170" />
+                  <p className="text-[11px] leading-4 text-muted-foreground">Necessária para calibrar a escala da foto.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gênero</Label>
@@ -1597,24 +1587,60 @@ ${sizingTables}`;
                     <option>Feminino</option><option>Masculino</option><option>Outro</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="objective">Objetivo</Label>
-                  <select id="objective" value={objective} onChange={(event) => setObjective(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                    <option>Comprar roupas</option><option>Avaliação fitness</option><option>Ambos</option>
-                  </select>
-                </div>
               </div>
+
+              {/* Campos extras colapsáveis */}
+              <details className="rounded-2xl border bg-card/70 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-primary flex items-center gap-2">
+                  <Ruler className="size-4" /> Adicionar mais medidas para maior precisão
+                  <span className="text-[10px] font-normal text-muted-foreground ml-auto">opcional</span>
+                </summary>
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-xl border bg-primary/5 p-2.5 text-[11px] leading-5 text-muted-foreground">
+                    Quanto mais medidas informar, mais precisa será a recomendação de tamanho. Com busto + cintura + quadril, a precisão sobe para 95%.
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {manualFields.filter(f => f.key !== "height_cm").map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <Label htmlFor={field.key} className="flex items-center gap-1 text-xs">
+                          {field.recommended && <span className="text-primary">★</span>}
+                          {field.label}
+                        </Label>
+                        <Input id={field.key} inputMode="decimal" value={manual[field.key] ?? ""} onChange={(event) => setManual((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} className="h-9 text-sm" />
+                      </div>
+                    ))}
+                    <div className="space-y-2">
+                      <Label htmlFor="age" className="text-xs">Idade</Label>
+                      <Input id="age" inputMode="numeric" value={age} onChange={(event) => setAge(event.target.value)} placeholder="32" className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="objective" className="text-xs">Objetivo</Label>
+                      <select id="objective" value={objective} onChange={(event) => setObjective(event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs">
+                        <option>Comprar roupas</option><option>Avaliação fitness</option><option>Ambos</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </details>
 
               <div className="space-y-2"><Label htmlFor="productUrl" className="flex items-center gap-2"><Link2 className="size-4 text-primary" /> Link da loja ou roupa</Label><Input id="productUrl" type="url" value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://loja.com/produto" maxLength={500} /></div>
               <div className="space-y-2"><Label htmlFor="notes">Contexto</Label><Textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={240} /></div>
-              <div className="space-y-3 rounded-2xl border bg-card/70 p-4">
-                <div><h3 className="font-display text-xl font-semibold">Bioimpedância opcional</h3><p className="text-sm leading-6 text-muted-foreground">Digite dados do exame ou anexe temporariamente para acompanhamento com médico/nutricionista.</p></div>
-                <div className="grid grid-cols-2 gap-3">
-                  {bioimpedanceFields.map((field) => <div key={field.key} className="space-y-2"><Label htmlFor={`bio-${field.key}`}>{field.label}</Label><Input id={`bio-${field.key}`} inputMode="decimal" value={bioimpedance[field.key] ?? ""} onChange={(event) => setBioimpedance((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} /></div>)}
+
+              {/* Bioimpedância colapsável */}
+              <details className="rounded-2xl border bg-card/70 p-3">
+                <summary className="cursor-pointer text-sm font-semibold flex items-center gap-2">
+                  <HeartPulse className="size-4 text-muted-foreground" /> Bioimpedância opcional
+                  <span className="text-[10px] font-normal text-muted-foreground ml-auto">para médico/nutricionista</span>
+                </summary>
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs text-muted-foreground">Digite dados do exame ou anexe temporariamente.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {bioimpedanceFields.map((field) => <div key={field.key} className="space-y-2"><Label htmlFor={`bio-${field.key}`} className="text-xs">{field.label}</Label><Input id={`bio-${field.key}`} inputMode="decimal" value={bioimpedance[field.key] ?? ""} onChange={(event) => setBioimpedance((prev) => ({ ...prev, [field.key]: event.target.value }))} placeholder={field.placeholder} className="h-9 text-sm" /></div>)}
+                  </div>
+                  <Label htmlFor="bio-upload" className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-xs font-bold"><Upload className="size-4" /> {bioFileName || "Upload do exame"}</Label>
+                  <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
                 </div>
-                <Label htmlFor="bio-upload" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-bold"><Upload className="size-4" /> {bioFileName || "Upload do exame"}</Label>
-                <Input id="bio-upload" type="file" accept="image/*,.pdf" onChange={onBioFileChange} className="sr-only" />
-              </div>
+              </details>
               {mode === "photo" && (
                 <div className="space-y-2 rounded-2xl border bg-muted/60 p-3 text-sm leading-6">
                   <div className="text-xs font-bold uppercase tracking-wider text-foreground">🔒 Privacidade — escolha o que guardar</div>
