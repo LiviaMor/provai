@@ -28,6 +28,7 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
+import { callGemini } from "@/lib/gemini";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -717,19 +718,30 @@ const Index = () => {
     if (!image) return toast.error(`Envie a foto ${kind === "front" ? "frontal" : "lateral"} antes de calibrar.`);
     setCalibratingSide(kind);
     try {
-      const { data, error } = await supabase.functions.invoke("detect-scale-marker", {
-        body: { imageDataUrl: image, markerType },
-      });
-      if (error) throw new Error(error.message ?? "Falha na chamada");
-      if (data?.error) throw new Error(data.error);
-      if (!data?.found) {
+      const systemPrompt = "Você é um detector de marcadores de escala em fotos. Encontre o marcador físico e retorne JSON com: found (bool), marker_long_side_px (number), image_width_px, image_height_px, confidence (0-1), reason (string).";
+      const markerInfo = markerType === "card" ? "Cartão CR80 (8.56 × 5.40 cm)" : markerType === "a4" ? "Folha A4 (29.7 × 21.0 cm)" : "Cédula brasileira (14.2 × 6.5 cm)";
+      const longSideCm = markerType === "card" ? 8.56 : markerType === "a4" ? 29.7 : 14.2;
+
+      const rawText = await callGemini("gemini-2.5-flash", [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: [
+          { type: "text", text: `Detecte o marcador "${markerInfo}" nesta foto. Lado maior = ${longSideCm}cm. Retorne JSON: {found, marker_long_side_px, image_width_px, image_height_px, confidence, reason}.` },
+          { type: "image_url", image_url: { url: image } },
+        ] },
+      ], { jsonMode: true });
+
+      const data = JSON.parse(rawText.replace(/^```json\s*|\s*```$/g, ""));
+
+      if (!data?.found || typeof data.marker_long_side_px !== "number" || data.marker_long_side_px <= 0) {
         toast.error(data?.reason ?? "Marcador não detectado. Reenquadre a foto deixando o marcador bem visível.");
         return;
       }
+
+      const pxPerCm = Number((data.marker_long_side_px / longSideCm).toFixed(3));
       const entry = {
-        px_per_cm: data.px_per_cm,
-        marker_label: data.marker_label,
-        confidence: data.confidence,
+        px_per_cm: pxPerCm,
+        marker_label: markerInfo,
+        confidence: data.confidence ?? null,
       };
       setScaleCalibration((prev) => ({ ...prev, [kind]: entry }));
       setCalibrationHistory((prev) => ({
@@ -856,30 +868,31 @@ const Index = () => {
     setIsAnalyzing(true);
     setAnalysis(null);
 
-    const { data, error } = await supabase.functions.invoke("analyze-body", {
-      body: {
-        imageDataUrl: frontPreview || undefined,
-        sideImageDataUrl: sidePreview || undefined,
-        heightCm: measurements.height_cm,
-        weightKg: measurements.estimated_weight_kg,
-        gender,
-        age: parseNumber(age),
-        shoppingGoal: objective,
-        productUrl: productUrl.trim() || undefined,
-        manualMeasurements: measurements,
-        bioimpedance: bioimpedanceData,
-        scaleCalibration: (scaleCalibration.front || scaleCalibration.side) ? scaleCalibration : undefined,
-      },
-    });
+    try {
+      const systemPrompt = `Você é o motor de visão por IA do app provAI para análise de fotos corporais, tamanhos de roupa e avaliação fitness em pt-BR. Responda somente JSON válido. Use fórmulas CUN-BAE, Deurenberg e U.S. Navy para % gordura. Seja conservador, indique confiança. Não substitui médico.`;
 
-    setIsAnalyzing(false);
+      const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+      userContent.push({ type: "text", text: `Analise os dados e retorne JSON com: measurements (cada medida como {value, confidence}), body_analysis (bmi, body_fat_estimate_pct, body_fat_breakdown, body_type, waist_to_hip_ratio, abdominal_risk, basal_metabolic_rate_kcal), clothing_sizes (size_brazil, size_international, pants_number_brazil), tailoring (hem_note, sleeve_note, shoulder_fit, waist_fit_suggestion), style_recommendations (body_type_description, what_to_wear, what_to_avoid, best_necklines, best_pants_styles, best_dress_styles), quality_assessment (overall_confidence, accuracy_note). Dados: altura=${measurements.height_cm ?? "?"}cm, peso=${measurements.estimated_weight_kg ?? "?"}kg, gênero=${gender}, idade=${age || "?"}, objetivo=${objective}, medidas manuais=${JSON.stringify(measurements)}, produto=${productUrl || "nenhum"}.` });
 
-    if (error || data?.error) {
-      setMode(previousMode);
-      return toast.error(data?.error ?? "Não foi possível concluir a análise.");
-    }
+      if (frontPreview) {
+        userContent.push({ type: "text", text: "FOTO FRONTAL:" });
+        userContent.push({ type: "image_url", image_url: { url: frontPreview } });
+      }
+      if (sidePreview) {
+        userContent.push({ type: "text", text: "FOTO LATERAL:" });
+        userContent.push({ type: "image_url", image_url: { url: sidePreview } });
+      }
 
-    const result = normalizeAnalysis(data);
+      const rawText = await callGemini("gemini-2.5-flash", [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ], { jsonMode: true });
+
+      const data = JSON.parse(rawText.replace(/^```json\s*|\s*```$/g, ""));
+
+      setIsAnalyzing(false);
+
+      const result = normalizeAnalysis(data);
     // Medidas manuais informadas pelo usuário têm prioridade sobre a estimativa da IA.
     result.measurements = { ...result.measurements, ...measurements };
     result.fitnessAssessment = mergeBioimpedanceFitness(result.fitnessAssessment ?? calculateFallbackFitness(result.measurements, { gender, age: parseNumber(age) }), bioimpedanceData);
@@ -902,6 +915,11 @@ const Index = () => {
     setMode("results");
     await saveHistory(result);
     toast.success("Análise provAI concluída.");
+    } catch (err) {
+      setIsAnalyzing(false);
+      setMode(previousMode);
+      toast.error(err instanceof Error ? err.message : "Não foi possível concluir a análise.");
+    }
   };
 
   const onGarmentChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1139,22 +1157,32 @@ const Index = () => {
     setIsTryingOn(true);
     setTryon(null);
     const brandSize = analysis?.sizeRecommendations?.Brasil ?? analysis?.clothing?.[0]?.size;
-    const { data, error } = await supabase.functions.invoke("virtual-tryon", {
-      body: {
-        userImageDataUrl: frontPreview,
-        garmentImageDataUrl: garmentPreview || undefined,
-        productUrl: productUrl.trim() || undefined,
-        measurements: currentMeasurements,
-        gender,
-        bodyType: analysis?.bodyType,
-        brandSize,
-        notes,
-      },
-    });
-    setIsTryingOn(false);
-    if (error || data?.error) return toast.error(data?.error ?? "Não foi possível gerar o provador.");
-    setTryon(data as TryonResult);
-    toast.success("Provador virtual pronto.");
+
+    // Try edge function first (if deployed), otherwise show guidance
+    try {
+      const { data, error } = await supabase.functions.invoke("virtual-tryon", {
+        body: {
+          userImageDataUrl: frontPreview,
+          garmentImageDataUrl: garmentPreview || undefined,
+          productUrl: productUrl.trim() || undefined,
+          measurements: currentMeasurements,
+          gender,
+          bodyType: analysis?.bodyType,
+          brandSize,
+          notes,
+        },
+      });
+      setIsTryingOn(false);
+      if (error || data?.error) {
+        toast.error("Provador virtual requer deploy das Edge Functions. Use a análise corporal + sizing por enquanto.");
+        return;
+      }
+      setTryon(data as TryonResult);
+      toast.success("Provador virtual pronto.");
+    } catch {
+      setIsTryingOn(false);
+      toast.error("Provador virtual indisponível no momento. A análise corporal e sizing funcionam normalmente.");
+    }
   };
 
   const exportPdf = () => {
